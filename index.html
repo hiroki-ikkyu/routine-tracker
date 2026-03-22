@@ -53,9 +53,9 @@ input,select{font-family:inherit}
 .time-block-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text2)}
 .time-block-line{flex:1;height:1px;background:var(--border)}
 .routine-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-.routine-item{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:0.5px solid var(--border);transition:background 0.15s}
+.routine-item{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:0.5px solid var(--border);transition:background 0.15s;width:100%;text-align:left}
 .routine-item:last-child{border-bottom:none}
-.routine-item.done{background:rgba(52,199,89,0.03)}
+.routine-item.done{background:rgba(52,199,89,0.08)}
 .r-check{width:24px;height:24px;border-radius:12px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;transition:all 0.3s;flex-shrink:0}
 .r-check.done{border-color:var(--green);background:var(--green)}
 .r-check svg{opacity:0;transition:opacity 0.2s}.r-check.done svg{opacity:1}
@@ -337,8 +337,9 @@ function rToday(){
       <!-- Right: To Do -->
       <div style="flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px;min-width:0;display:flex;flex-direction:column">
         <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">To Do</div>
-        <div style="flex:1;overflow-y:auto;max-height:120px">
-          ${sortedTodos.length?sortedTodos.map(t=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0">
+        <div id="todoList" style="flex:1;overflow-y:auto;max-height:120px">
+          ${sortedTodos.length?sortedTodos.map((t,idx)=>`<div class="todo-row" draggable="true" data-idx="${idx}" data-id="${t.id}" style="display:flex;align-items:center;gap:5px;padding:2px 0;cursor:default">
+            <span class="drag-grip" style="cursor:grab;color:var(--text3);font-size:10px;padding:0 2px;touch-action:none">⠿</span>
             <button onclick="toggleTodo('${dk}','${t.id}')" style="width:16px;height:16px;border-radius:8px;border:1.5px solid ${t.done?'var(--green)':'var(--border)'};background:${t.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
               ${t.done?'<svg width="8" height="8" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>':''}
             </button>
@@ -377,6 +378,54 @@ function rToday(){
     h+=`<div class="time-block"><div class="time-block-header"><span class="time-block-label">${b.label}</span><span style="font-size:10px;color:var(--text3);font-weight:500">${b.range}</span><div class="time-block-line"></div></div><div class="routine-card">${items.map(r=>{const d=done.includes(r.id);return`<button class="routine-item${d?' done':''}" onclick="toggle('${dk}','${dt}','${r.id}')"><div class="r-check${d?' done':''}"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span></button>`}).join('')}</div></div>`});
 
   h+='</div>';$('app').innerHTML=h;
+  initTodoDrag(dk);
+}
+
+// Touch drag & drop for todo reordering
+function initTodoDrag(dk){
+  const list=$('todoList');if(!list)return;
+  let dragEl=null,startY=0,startIdx=-1;
+  const rows=()=>list.querySelectorAll('.todo-row');
+  
+  list.addEventListener('touchstart',function(e){
+    const grip=e.target.closest('.drag-grip');if(!grip)return;
+    dragEl=grip.closest('.todo-row');if(!dragEl)return;
+    startIdx=parseInt(dragEl.dataset.idx);
+    startY=e.touches[0].clientY;
+    dragEl.style.opacity='0.5';
+    dragEl.style.background='rgba(0,0,0,0.04)';
+    e.preventDefault();
+  },{passive:false});
+
+  list.addEventListener('touchmove',function(e){
+    if(!dragEl)return;
+    e.preventDefault();
+    const y=e.touches[0].clientY;
+    const items=rows();
+    for(const item of items){
+      if(item===dragEl)continue;
+      const rect=item.getBoundingClientRect();
+      const mid=rect.top+rect.height/2;
+      if(y<mid&&item.compareDocumentPosition(dragEl)&Node.DOCUMENT_POSITION_FOLLOWING){
+        list.insertBefore(dragEl,item);break;
+      }
+      if(y>mid&&item.compareDocumentPosition(dragEl)&Node.DOCUMENT_POSITION_PRECEDING){
+        list.insertBefore(dragEl,item.nextSibling);break;
+      }
+    }
+  },{passive:false});
+
+  list.addEventListener('touchend',function(){
+    if(!dragEl)return;
+    dragEl.style.opacity='';dragEl.style.background='';
+    const newOrder=[...rows()].map(r=>r.dataset.id);
+    const todos=D.todos[dk]||[];
+    const reordered=newOrder.map(id=>todos.find(t=>t.id===id)).filter(Boolean);
+    const missing=todos.filter(t=>!newOrder.includes(t.id));
+    D.todos[dk]=[...reordered,...missing];
+    save();dragEl=null;
+    render(true);
+  });
 }
 
 // ① FIX: date picker uses local date constructor
