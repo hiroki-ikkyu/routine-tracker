@@ -100,6 +100,9 @@ input,select{font-family:inherit}
 .scroll-area::-webkit-scrollbar{width:4px;height:4px;display:block!important}
 .scroll-area::-webkit-scrollbar-track{background:var(--border);border-radius:4px}
 .scroll-area::-webkit-scrollbar-thumb{background:var(--text3);border-radius:4px;min-height:20px;min-width:20px}
+.scroll-wrap{position:relative}
+.scroll-wrap.has-more::after{content:'';position:absolute;bottom:0;left:0;right:0;height:24px;background:linear-gradient(transparent,rgba(255,255,255,0.95));pointer-events:none;border-radius:0 0 12px 12px}
+.more-badge{font-size:8px;font-weight:700;color:var(--text3);text-align:center;padding:2px 0}
 </style>
 </head>
 <body>
@@ -327,8 +330,9 @@ function rToday(){
   h+=`<div style="display:flex;gap:8px;margin-bottom:14px;align-items:stretch">
       <!-- Left: Countdown -->
       <div style="flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px;min-width:0;display:flex;flex-direction:column">
-        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Countdown</div>
-        <div class="scroll-area" style="flex:1;max-height:${upcoming.length>5?'120px':'none'}">
+        <div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:0.5px;margin-bottom:4px">Countdown${upcoming.length?` <span style="font-weight:400;letter-spacing:0">${upcoming.length}件</span>`:''}</div>
+        <div class="scroll-wrap${upcoming.length>5?' has-more':''}">
+        <div class="scroll-area" style="flex:1;max-height:${upcoming.length>5?'110px':'none'}">
         ${upcoming.length?upcoming.map(e=>{
           const days=daysUntil(e.date);
           const d=parseKey(e.date);
@@ -340,11 +344,16 @@ function rToday(){
             <div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap">${e.label}</div>
           </div>`}).join(''):'<div style="font-size:11px;color:var(--text3);padding:4px 0">イベントなし</div>'}
         </div>
+        </div>
       </div>
       <!-- Right: To Do -->
       <div style="flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px;min-width:0;display:flex;flex-direction:column">
-        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">To Do</div>
-        <div id="todoList" class="scroll-area" style="flex:1;max-height:${sortedTodos.length>4?'100px':'none'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:0.5px">To do${sortedTodos.length?` <span style="font-weight:400;letter-spacing:0">${sortedTodos.length}件</span>`:''}</div>
+          <button onclick="var v=prompt('タスクを入力');if(v&&v.trim())addTodo('${dk}',v.trim())" style="font-size:14px;color:var(--text3);padding:0;line-height:1">+</button>
+        </div>
+        <div class="scroll-wrap${sortedTodos.length>4?' has-more':''}">
+        <div id="todoList" class="scroll-area" style="flex:1;max-height:${sortedTodos.length>4?'105px':'none'}">
           ${sortedTodos.length?sortedTodos.map((t,idx)=>`<div class="todo-row" draggable="true" data-idx="${idx}" data-id="${t.id}" style="display:flex;align-items:center;gap:5px;padding:2px 0;cursor:default">
             <span class="drag-grip" style="cursor:grab;color:var(--text3);font-size:10px;padding:0 2px;touch-action:none">⠿</span>
             <button onclick="toggleTodo('${dk}','${t.id}')" style="width:16px;height:16px;border-radius:8px;border:1.5px solid ${t.done?'var(--green)':'var(--border)'};background:${t.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
@@ -354,8 +363,6 @@ function rToday(){
             <button onclick="delTodo('${dk}','${t.id}')" style="font-size:12px;color:var(--text3);padding:0 2px;flex-shrink:0">×</button>
           </div>`).join(''):'<div style="font-size:11px;color:var(--text3);padding:2px 0">タスクなし</div>'}
         </div>
-        <div style="margin-top:4px;border-top:0.5px solid var(--border);padding-top:4px">
-          <input id="todoInput" type="text" placeholder="＋ タスクを追加" onkeydown="if(event.key==='Enter'&&this.value.trim()){addTodo('${dk}',this.value.trim());this.value=''}" style="width:100%;border:none;outline:none;font-size:11px;background:transparent;color:var(--text);font-family:inherit"/>
         </div>
       </div>
     </div>`;
