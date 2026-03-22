@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Routines">
+<title>Routine Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f5f5f7;--card:#fff;--text:#1d1d1f;--text2:#6e6e73;--text3:#aeaeb2;
+  --border:#e5e5ea;--accent:#1d1d1f;--green:#34c759;--orange:#ff9500;
+  --red:#ff3b30;--blue:#007aff;--radius:16px;
+  --shadow:0 1px 3px rgba(0,0,0,0.04),0 1px 2px rgba(0,0,0,0.02);
+  --safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;padding-top:var(--safe-top);padding-bottom:calc(70px + var(--safe-bottom));min-height:100vh;overflow-x:hidden}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+button:active{transform:scale(0.97)}
+input,select{font-family:inherit}
+.container{max-width:480px;margin:0 auto;padding:16px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:0.5px solid var(--border);display:flex;justify-content:center;padding:8px 0 calc(8px + var(--safe-bottom));z-index:100}
+.tab-bar button{flex:1;max-width:120px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;font-size:10px;font-weight:600;color:var(--text3);transition:color 0.2s}
+.tab-bar button.active{color:var(--accent)}
+.tab-bar svg{width:24px;height:24px}
+.stats-grid{display:flex;gap:8px;margin-bottom:16px}
+.stat-card{flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 12px;text-align:center}
+.stat-val{font-size:28px;font-weight:700}.stat-label{font-size:11px;font-weight:500;color:var(--text2);margin-top:2px}
+.week-nav{display:flex;align-items:center;gap:4px;margin-bottom:12px}
+.week-nav .arr{width:32px;height:32px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text2)}
+.week-nav .tbtn{font-size:11px;font-weight:600;padding:6px 14px;border-radius:10px;background:var(--accent);color:#fff}
+.week-nav .tbtn.off{background:var(--card);color:var(--text2);box-shadow:var(--shadow)}
+.week-grid{display:flex;gap:4px;margin-bottom:16px}
+.wday{flex:1;background:var(--card);border-radius:12px;padding:8px 2px;text-align:center;box-shadow:var(--shadow);transition:all 0.2s}
+.wday.sel{background:var(--accent);color:#fff;box-shadow:0 2px 12px rgba(0,0,0,0.15)}
+.wday .dw{font-size:10px;font-weight:600;color:var(--text3)}.wday.sel .dw{color:rgba(255,255,255,0.6)}
+.wday .dn{font-size:17px;font-weight:700;margin-top:2px}
+.wday .dd{width:5px;height:5px;border-radius:50%;margin:4px auto 0}
+.dt-row{display:flex;gap:0;background:var(--card);border-radius:14px;padding:3px;margin-bottom:16px;box-shadow:var(--shadow)}
+.dt-btn{flex:1;padding:10px 4px;border-radius:11px;text-align:center;font-size:12px;font-weight:600;color:var(--text2);transition:all 0.3s}
+.dt-btn.on{background:var(--accent);color:#fff}
+.prog-row{display:flex;justify-content:space-between;margin-bottom:6px}
+.prog-row .l{font-size:13px;font-weight:600}.prog-row .v{font-size:13px;color:var(--text2)}
+.prog-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:20px}
+.prog-fill{height:100%;background:var(--accent);border-radius:3px;transition:width 0.5s ease}
+.time-block{margin-bottom:20px}
+.time-block-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:0 2px}
+.time-block-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text2)}
+.time-block-line{flex:1;height:1px;background:var(--border)}
+.routine-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.routine-item{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:0.5px solid var(--border);transition:background 0.15s}
+.routine-item:last-child{border-bottom:none}
+.routine-item.done{background:rgba(52,199,89,0.03)}
+.r-check{width:24px;height:24px;border-radius:12px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;transition:all 0.3s;flex-shrink:0}
+.r-check.done{border-color:var(--green);background:var(--green)}
+.r-check svg{opacity:0;transition:opacity 0.2s}.r-check.done svg{opacity:1}
+.r-time{font-size:13px;font-weight:700;color:var(--accent);width:44px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.r-label{font-size:15px;color:var(--text);font-weight:400;flex:1;transition:all 0.2s}
+.routine-item.done .r-label{color:var(--text3);text-decoration:line-through;text-decoration-color:var(--text3)}
+.routine-item.done .r-time{color:var(--text3)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-cell{aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600}
+.cal-hdr{font-size:10px;font-weight:700;color:var(--text3)}
+.cal-cell.empty{background:transparent}
+.cal-cell.day{background:#f0f0f2;color:var(--text2);cursor:pointer}
+.cal-cell.day.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.cal-cell.day.l1{background:#d4edda;color:#155724}.cal-cell.day.l2{background:#a8d5a2;color:#155724}
+.cal-cell.day.l3{background:#6ec067;color:#fff}.cal-cell.day.l4{background:#34c759;color:#fff}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cal-nav .mo{font-size:17px;font-weight:700}
+.cal-nav button{width:32px;height:32px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text2)}
+.chart-bars{display:flex;align-items:flex-end;gap:6px;height:120px;padding:0 4px}
+.chart-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+.chart-bar{width:100%;border-radius:6px 6px 4px 4px;transition:height 0.5s ease;min-height:3px}
+.chart-lbl{font-size:9px;font-weight:600;color:var(--text3)}
+.monthly-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.monthly-row:last-child{border-bottom:none}
+.m-week{font-size:12px;font-weight:600;color:var(--text2);width:40px}
+.m-bar-bg{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.m-bar-fill{height:100%;border-radius:4px;transition:width 0.5s}
+.m-pct{font-size:12px;font-weight:700;width:40px;text-align:right}
+.edit-btn{font-size:13px;font-weight:600;color:var(--blue);padding:4px 8px}
+.edit-row{display:flex;align-items:center;gap:6px;padding:10px 16px;border-bottom:0.5px solid var(--border)}
+.edit-row:last-child{border-bottom:none}
+.edit-row input{border:none;outline:none;font-size:14px;background:transparent;color:var(--text)}
+.edit-row input.ti{width:50px;font-weight:700;text-align:center;background:var(--bg);border-radius:6px;padding:4px 2px}
+.edit-row .del{color:var(--red);font-size:18px;padding:0 4px;font-weight:300}
+.add-btn{display:flex;align-items:center;justify-content:center;gap:4px;padding:12px;font-size:13px;font-weight:600;color:var(--blue);border-top:0.5px solid var(--border);width:100%}
+.tooltip{position:fixed;background:var(--accent);color:#fff;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:600;z-index:200;pointer-events:none;opacity:0;transition:opacity 0.2s;box-shadow:0 4px 16px rgba(0,0,0,0.15)}
+.tooltip.show{opacity:1}
+.page{display:none}.page.active{display:block}
+.page.animate{animation:fadeIn 0.25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div class="container" id="app"></div>
+<div class="tooltip" id="tooltip"></div>
+<nav class="tab-bar">
+  <button id="tab-today" class="active" onclick="go('today')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Today
+  </button>
+  <button id="tab-review" onclick="go('review')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Review
+  </button>
+  <button id="tab-settings" onclick="go('settings')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings
+  </button>
+</nav>
+<script>
+const SK='routine_tracker_v2';
+
+// ① FIX: Use local date string instead of toISOString (which is UTC)
+function toKey(d){
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function parseKey(k){const[y,m,d]=k.split('-');return new Date(parseInt(y),parseInt(m)-1,parseInt(d))}
+function todayKey(){return toKey(new Date())}
+
+// ② FIX: Added lunch block 11:30-13:00
+const BLOCKS=[
+  {id:'morning',label:'朝',range:'– 9:00'},
+  {id:'am',label:'午前',range:'9:00 – 11:30'},
+  {id:'lunch',label:'昼',range:'11:30 – 13:00'},
+  {id:'pm',label:'午後',range:'13:00 – 18:00'},
+  {id:'night',label:'夜',range:'18:00 –'}
+];
+
+function timeToMin(t){const[h,m]=t.split(':').map(Number);return h*60+m}
+function timeToBlock(t){
+  const m=timeToMin(t);
+  if(m<540) return 'morning';   // <9:00
+  if(m<690) return 'am';        // <11:30
+  if(m<780) return 'lunch';     // <13:00
+  if(m<1080) return 'pm';       // <18:00
+  return 'night';
+}
+
+const DEFAULT_TYPES={
+  office:{label:'出社',icon:'🏢',routines:[
+    {id:'o1',time:'6:00',task:'起床'},{id:'o2',time:'6:10',task:'瞑想 10min'},
+    {id:'o3',time:'6:25',task:'シャワー・身支度'},{id:'o4',time:'6:50',task:'朝食'},
+    {id:'o5',time:'7:20',task:'通勤（読書）'},{id:'o6',time:'8:30',task:'マーケットチェック'},
+    {id:'o7',time:'9:00',task:'Bloomberg確認'},{id:'o8',time:'9:30',task:'リサーチ・分析'},
+    {id:'o9',time:'12:00',task:'健康的なランチ'},{id:'o10',time:'13:00',task:'午後の業務'},
+    {id:'o11',time:'17:30',task:'退勤（読書）'},{id:'o12',time:'18:30',task:'USCPA 学習'},
+    {id:'o13',time:'19:30',task:'簿記2級 学習'},{id:'o14',time:'20:30',task:'運動'},
+    {id:'o15',time:'21:30',task:'夕食・リラックス'},{id:'o16',time:'22:30',task:'就寝準備'},
+    {id:'o17',time:'23:00',task:'就寝'},
+  ]},
+  wfh:{label:'在宅',icon:'🏠',routines:[
+    {id:'w1',time:'6:00',task:'起床'},{id:'w2',time:'6:10',task:'瞑想 10min'},
+    {id:'w3',time:'6:25',task:'シャワー・身支度'},{id:'w4',time:'6:50',task:'朝食・コーヒー'},
+    {id:'w5',time:'7:30',task:'USCPA 学習'},{id:'w6',time:'8:30',task:'マーケットチェック'},
+    {id:'w7',time:'9:00',task:'Bloomberg確認'},{id:'w8',time:'9:30',task:'リサーチ・分析'},
+    {id:'w9',time:'12:00',task:'自炊ランチ'},{id:'w10',time:'13:00',task:'ディープワーク'},
+    {id:'w11',time:'15:00',task:'簿記2級 学習'},{id:'w12',time:'17:00',task:'Claude Code 練習'},
+    {id:'w13',time:'18:00',task:'運動'},{id:'w14',time:'19:00',task:'夕食・自炊'},
+    {id:'w15',time:'20:30',task:'自由時間'},{id:'w16',time:'22:30',task:'就寝準備'},
+    {id:'w17',time:'23:00',task:'就寝'},
+  ]},
+  weekend:{label:'休日',icon:'🌴',routines:[
+    {id:'e1',time:'7:00',task:'起床'},{id:'e2',time:'7:15',task:'瞑想 15min'},
+    {id:'e3',time:'7:30',task:'朝散歩'},{id:'e4',time:'8:15',task:'朝食'},
+    {id:'e5',time:'9:00',task:'USCPA 集中学習'},{id:'e6',time:'12:00',task:'ランチ'},
+    {id:'e7',time:'13:00',task:'簿記2級 集中学習'},{id:'e8',time:'15:00',task:'サイドプロジェクト'},
+    {id:'e9',time:'16:30',task:'しっかり運動 1h+'},{id:'e10',time:'18:00',task:'夕食・自炊'},
+    {id:'e11',time:'19:30',task:'週次レビュー'},{id:'e12',time:'20:30',task:'ポートフォリオ確認'},
+    {id:'e13',time:'21:30',task:'リラックス（スマホOFF）'},{id:'e14',time:'22:30',task:'就寝準備'},
+    {id:'e15',time:'23:00',task:'就寝'},
+  ]}
+};
+
+function load(){try{const r=localStorage.getItem(SK);if(r){const d=JSON.parse(r);if(!d.events)d.events=[];if(!d.todos)d.todos={};if(!d.weight)d.weight={};if(!d.goalWeight)d.goalWeight=70;return d}}catch(e){}return{types:JSON.parse(JSON.stringify(DEFAULT_TYPES)),records:{},events:[],todos:{},weight:{},goalWeight:70}}
+function save(){localStorage.setItem(SK,JSON.stringify(D))}
+function autoType(date){const w=date.getDay();return(w===0||w===6)?'weekend':'office'}
+function getRec(k){return D.records[k]||{type:null,done:[]}}
+function getPct(k){const r=getRec(k),t=r.type||autoType(parseKey(k)),rt=D.types[t]?.routines||[];if(!rt.length)return 0;return Math.round(r.done.filter(id=>rt.some(x=>x.id===id)).length/rt.length*100)}
+function getStreak(){let s=0,d=new Date();while(true){if(getPct(toKey(d))>=50){s++;d.setDate(d.getDate()-1)}else break}return s}
+
+function daysUntil(dateStr){const t=parseKey(dateStr),now=new Date();now.setHours(0,0,0,0);t.setHours(0,0,0,0);return Math.ceil((t-now)/(86400000))}
+
+function getWeight(k){return D.weight[k]||null}
+function setWeight(k,v){D.weight[k]=parseFloat(v);save();render(true)}
+function adjustWeight(k,delta){const cur=D.weight[k]||D.goalWeight||70;D.weight[k]=Math.round((cur+delta)*10)/10;save();render(true)}
+function getLastWeight(){const d=new Date();for(let i=0;i<60;i++){const k=toKey(d);if(D.weight[k])return D.weight[k];d.setDate(d.getDate()-1)}return null}
+function getWeightHistory(days){const arr=[];const d=new Date();for(let i=days-1;i>=0;i--){const dd=new Date(d);dd.setDate(d.getDate()-i);const k=toKey(dd);if(D.weight[k])arr.push({date:dd,w:D.weight[k]});}return arr}
+
+// Todo functions with auto carry-forward
+function getTodos(dateKey){
+  // Carry forward: find uncompleted todos from past days
+  const target=parseKey(dateKey);
+  const existing=D.todos[dateKey]||[];
+  const carried=[];
+  const d=new Date(target);
+  for(let i=1;i<=30;i++){
+    d.setDate(d.getDate()-1);
+    const k=toKey(d);
+    const past=D.todos[k]||[];
+    past.forEach(t=>{
+      if(!t.done && !existing.some(e=>e.fromId===t.id) && !carried.some(c=>c.fromId===t.id)){
+        carried.push({id:'cf_'+t.id+'_'+dateKey,text:t.text,done:false,fromId:t.id,fromDate:k});
+      }
+    });
+  }
+  // Auto-save carried items into this day
+  if(carried.length){
+    if(!D.todos[dateKey])D.todos[dateKey]=[];
+    carried.forEach(c=>{
+      if(!D.todos[dateKey].some(e=>e.fromId===c.fromId))D.todos[dateKey].push(c);
+    });
+    save();
+  }
+  return D.todos[dateKey]||[];
+}
+
+function addTodo(dateKey,text){
+  if(!D.todos[dateKey])D.todos[dateKey]=[];
+  D.todos[dateKey].push({id:'td_'+Date.now(),text:text,done:false});
+  save();render(true);
+}
+function toggleTodo(dateKey,id){
+  const list=D.todos[dateKey]||[];
+  const t=list.find(x=>x.id===id);
+  if(t)t.done=!t.done;
+  save();render(true);
+}
+function delTodo(dateKey,id){
+  if(D.todos[dateKey])D.todos[dateKey]=D.todos[dateKey].filter(x=>x.id!==id);
+  save();render(true);
+}
+
+function genSample(){const d=new Date();for(let i=1;i<=30;i++){d.setDate(d.getDate()-1);const k=toKey(d),t=autoType(d),rt=D.types[t].routines;const n=Math.floor(Math.random()*rt.length*0.5)+Math.floor(rt.length*0.4);const sh=[...rt].sort(()=>Math.random()-0.5);D.records[k]={type:t,done:sh.slice(0,n).map(x=>x.id)}}save()}
+
+let D=load();
+if(!Object.keys(D.records).length)genSample();
+// Add sample events if none exist
+if(!D.events.length){
+  D.events=[
+    {id:'ev1',date:'2026-04-15',label:'簿記2級 試験'},
+    {id:'ev2',date:'2026-06-01',label:'移動日'},
+    {id:'ev3',date:'2026-09-30',label:'USCPA FAR 目標'}
+  ];save();
+}
+// Sample weight data
+if(!Object.keys(D.weight).length){
+  let w=73.5;const d=new Date();
+  for(let i=30;i>=0;i--){const dd=new Date(d);dd.setDate(d.getDate()-i);w+=Math.round((Math.random()-0.55)*4)/10;w=Math.round(Math.max(68,Math.min(76,w))*10)/10;D.weight[toKey(dd)]=w;}
+  save();
+}
+
+let tab='today',selDate=new Date(),wOff=0,aDT=null,editDT=null,settingsDT=null,calOpen=false,wChartRange='month';
+let calM=new Date().getMonth(),calY=new Date().getFullYear();
+const $=id=>document.getElementById(id);
+const DOW=['月','火','水','木','金','土','日'];
+
+function go(t){tab=t;document.querySelectorAll('.tab-bar button').forEach(b=>b.classList.remove('active'));$('tab-'+t).classList.add('active');render()}
+
+// Smooth render: keepScroll=true avoids flicker by preserving scroll and skipping animation
+let _noAnim=false;
+function render(keepScroll){
+  const scrollY=window.scrollY;
+  _noAnim=!!keepScroll;
+  if(tab==='today')rToday();else if(tab==='review')rReview();else rSettings();
+  if(keepScroll)requestAnimationFrame(()=>window.scrollTo(0,scrollY));
+}
+function pgCls(){return _noAnim?'page active':'page active animate'}
+
+function weekDates(){const d=new Date();d.setDate(d.getDate()+wOff*7);const day=d.getDay(),mon=new Date(d);mon.setDate(d.getDate()-((day+6)%7));return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);return x})}
+
+// ── TODAY ──
+function rToday(){
+  const today=new Date(),dk=toKey(selDate),rec=getRec(dk);
+  const dt=aDT||rec.type||autoType(selDate);
+  const routines=D.types[dt].routines,done=rec.done||[];
+  const doneN=done.filter(id=>routines.some(r=>r.id===id)).length;
+  const pct=routines.length?Math.round(doneN/routines.length*100):0;
+  const streak=getStreak(),wd=weekDates(),cw=wOff===0;
+
+  const grouped={};BLOCKS.forEach(b=>grouped[b.id]=[]);
+  routines.forEach(r=>grouped[timeToBlock(r.time)].push(r));
+
+  // ① FIX: use selDate directly to construct date string for onclick, avoiding UTC issues
+  const upcoming=D.events.filter(e=>daysUntil(e.date)>=0).sort((a,b)=>daysUntil(a.date)-daysUntil(b.date));
+  const todos=getTodos(dk);
+  const pendingTodos=todos.filter(t=>!t.done);
+  const doneTodos=todos.filter(t=>t.done);
+  const sortedTodos=[...pendingTodos,...doneTodos];
+
+  const isToday=dk===todayKey();
+  let h=`<div class="${pgCls()}">
+    <div style="margin-bottom:14px;padding-top:8px">
+      <h1 style="font-size:30px;font-weight:700;letter-spacing:-0.5px">Routines</h1>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+        <p style="font-size:14px;color:var(--text2)">${selDate.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'})} ${D.types[dt].icon} ${D.types[dt].label}</p>${isToday?'<span style="background:#d1d1d6;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px">TODAY</span>':''}
+        <button onclick="calOpen=!calOpen;render(true)" style="font-size:10px;color:var(--text3);padding:2px 4px;transition:transform 0.3s;transform:rotate(${calOpen?'180':'0'}deg)">▼</button>
+      </div>
+    </div>`;
+
+  // Collapsible calendar + mode section
+  if(calOpen){
+    h+=`<div style="margin:0 -16px 14px;padding:12px 16px;background:rgba(0,0,0,0.02);border-top:0.5px solid var(--border);border-bottom:0.5px solid var(--border)">
+    <div class="week-nav">
+      <button class="arr" onclick="wOff--;aDT=null;render(true)">‹</button><div style="flex:1"></div>
+      <button class="tbtn${cw?'':' off'}" onclick="wOff=0;selDate=new Date();aDT=null;render(true)">Today</button>
+      <div style="flex:1"></div><button class="arr" onclick="wOff++;aDT=null;render(true)">›</button>
+    </div>
+    <div class="week-grid">${wd.map((d,i)=>{
+      const k=toKey(d),sel=k===dk,isT=k===todayKey(),p=getPct(k);
+      const dot=p>=80?'var(--green)':p>=50?'var(--orange)':p>0?'var(--red)':'transparent';
+      return`<button class="wday${sel?' sel':''}" onclick="pickDate(${d.getFullYear()},${d.getMonth()},${d.getDate()})"><div class="dw">${DOW[i]}</div><div class="dn">${d.getDate()}</div><div class="dd" style="background:${sel?'rgba(255,255,255,0.5)':dot}"></div></button>`}).join('')}</div>
+    <div class="dt-row">${Object.entries(D.types).map(([k,v])=>`<button class="dt-btn${dt===k?' on':''}" onclick="setDT('${k}')">${v.icon} ${v.label}</button>`).join('')}</div>
+    </div>`;
+  }
+
+  h+=`<div style="display:flex;gap:8px;margin-bottom:14px;align-items:stretch">
+      <!-- Left: Countdown -->
+      <div style="flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px;min-width:0">
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Countdown</div>
+        ${upcoming.length?upcoming.slice(0,3).map(e=>{
+          const days=daysUntil(e.date);
+          const d=parseKey(e.date);
+          const dateLabel=d.toLocaleDateString('ja-JP',{month:'short',day:'numeric'});
+          const urgency=days<=7?'var(--red)':days<=30?'var(--orange)':'var(--text)';
+          return`<div style="display:flex;align-items:center;gap:8px;padding:2px 0">
+            <div style="font-size:15px;font-weight:700;color:${urgency};width:40px;text-align:right;flex-shrink:0">${days}<span style="font-size:9px;font-weight:500;color:var(--text3)">日</span></div>
+            <div style="font-size:9px;color:var(--text3);width:40px;flex-shrink:0">${dateLabel}</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.label}</div>
+          </div>`}).join(''):'<div style="font-size:11px;color:var(--text3);padding:4px 0">イベントなし</div>'}
+      </div>
+      <!-- Right: To Do -->
+      <div style="flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px;min-width:0;display:flex;flex-direction:column">
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">To Do</div>
+        <div style="flex:1;overflow-y:auto;max-height:120px">
+          ${sortedTodos.length?sortedTodos.map(t=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0">
+            <button onclick="toggleTodo('${dk}','${t.id}')" style="width:16px;height:16px;border-radius:8px;border:1.5px solid ${t.done?'var(--green)':'var(--border)'};background:${t.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
+              ${t.done?'<svg width="8" height="8" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>':''}
+            </button>
+            <div style="font-size:11px;flex:1;color:${t.done?'var(--text3)':'var(--text)'};${t.done?'text-decoration:line-through;':''}white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.text}</div>
+            <button onclick="delTodo('${dk}','${t.id}')" style="font-size:12px;color:var(--text3);padding:0 2px;flex-shrink:0">×</button>
+          </div>`).join(''):'<div style="font-size:11px;color:var(--text3);padding:2px 0">タスクなし</div>'}
+        </div>
+        <div style="margin-top:4px;border-top:0.5px solid var(--border);padding-top:4px">
+          <input id="todoInput" type="text" placeholder="＋ タスクを追加" onkeydown="if(event.key==='Enter'&&this.value.trim()){addTodo('${dk}',this.value.trim());this.value=''}" style="width:100%;border:none;outline:none;font-size:11px;background:transparent;color:var(--text);font-family:inherit"/>
+        </div>
+      </div>
+    </div>`;
+
+  const todayW=getWeight(dk);
+  const prevD=new Date(selDate);prevD.setDate(prevD.getDate()-1);const prevW=getWeight(toKey(prevD));
+  const weekD=new Date(selDate);weekD.setDate(weekD.getDate()-7);const weekW=getWeight(toKey(weekD));
+  const dayDiff=todayW&&prevW?Math.round((todayW-prevW)*10)/10:null;
+  const weekDiff=todayW&&weekW?Math.round((todayW-weekW)*10)/10:null;
+  const goalDiff=todayW?Math.round((todayW-D.goalWeight)*10)/10:null;
+
+  h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <div><span style="font-size:13px;font-weight:600">Progress</span> <span style="font-size:13px;color:var(--text2)">${doneN} of ${routines.length}</span></div>
+    <div style="display:flex;align-items:center;gap:4px">
+      ${dayDiff!==null?`<span style="font-size:9px;font-weight:600;padding:1px 4px;border-radius:4px;${dayDiff<=0?'color:var(--green);background:rgba(52,199,89,0.1)':'color:var(--red);background:rgba(255,59,48,0.1)'}">日${dayDiff>0?'+':''}${dayDiff.toFixed(1)}</span>`:''}
+      ${weekDiff!==null?`<span style="font-size:9px;font-weight:600;padding:1px 4px;border-radius:4px;${weekDiff<=0?'color:var(--green);background:rgba(52,199,89,0.1)':'color:var(--red);background:rgba(255,59,48,0.1)'}">週${weekDiff>0?'+':''}${weekDiff.toFixed(1)}</span>`:''}
+      ${goalDiff!==null?`<span style="font-size:9px;font-weight:500;color:var(--text3)">目標${goalDiff>0?'+':''}${goalDiff.toFixed(1)}</span>`:''}
+      <button onclick="adjustWeight('${dk}',-0.1)" style="width:20px;height:20px;border-radius:10px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2);padding:0">−</button>
+      <span onclick="var v=prompt('体重 (kg)',${todayW||''});if(v&&!isNaN(v))setWeight('${dk}',v)" style="cursor:pointer;font-size:15px;font-weight:700;color:var(--text)">${todayW?todayW.toFixed(1):'--.-'}</span>
+      <span style="font-size:10px;color:var(--text3)">kg</span>
+      <button onclick="adjustWeight('${dk}',0.1)" style="width:20px;height:20px;border-radius:10px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2);padding:0">+</button>
+    </div>
+  </div>
+  <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>`;
+
+  BLOCKS.forEach(b=>{const items=grouped[b.id];if(!items.length)return;
+    h+=`<div class="time-block"><div class="time-block-header"><span class="time-block-label">${b.label}</span><span style="font-size:10px;color:var(--text3);font-weight:500">${b.range}</span><div class="time-block-line"></div></div><div class="routine-card">${items.map(r=>{const d=done.includes(r.id);return`<button class="routine-item${d?' done':''}" onclick="toggle('${dk}','${dt}','${r.id}')"><div class="r-check${d?' done':''}"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span></button>`}).join('')}</div></div>`});
+
+  h+='</div>';$('app').innerHTML=h;
+}
+
+// ① FIX: date picker uses local date constructor
+function pickDate(y,m,d){selDate=new Date(y,m,d);aDT=null;render()}
+
+// ④ FIX: toggle preserves scroll
+function toggle(dk,dt,id){if(!D.records[dk])D.records[dk]={type:dt,done:[]};const r=D.records[dk];r.type=dt;r.done=r.done.includes(id)?r.done.filter(x=>x!==id):[...r.done,id];save();render(true)}
+function setDT(t){aDT=t;const dk=toKey(selDate);if(!D.records[dk])D.records[dk]={type:t,done:[]};else D.records[dk].type=t;save();render(true)}
+
+// ── REVIEW ──
+function rReview(){
+  const today=new Date(),streak=getStreak();
+  let best=0,tmp=0,d2=new Date();for(let i=0;i<365;i++){d2.setDate(d2.getDate()-(i===0?0:1));if(getPct(toKey(d2))>=50){tmp++;best=Math.max(best,tmp)}else tmp=0}
+  let s30=0,c30=0,d3=new Date();for(let i=0;i<30;i++){const k=toKey(d3);if(D.records[k]){s30+=getPct(k);c30++}d3.setDate(d3.getDate()-1)}
+  const avg30=c30?Math.round(s30/c30):0;
+  const last7=[];for(let i=6;i>=0;i--){const dd=new Date(today);dd.setDate(today.getDate()-i);last7.push({date:dd,pct:getPct(toKey(dd))})}
+  const calDate=new Date(calY,calM,1),startDow=(calDate.getDay()+6)%7,dim=new Date(calY,calM+1,0).getDate();
+  const mName=calDate.toLocaleDateString('ja-JP',{year:'numeric',month:'long'});
+  const weeks=[];let ws=new Date(calY,calM,1);while(ws.getMonth()===calM){let wS=0,wC=0;for(let i=0;i<7;i++){const wd=new Date(ws);wd.setDate(ws.getDate()+i);if(wd.getMonth()===calM&&D.records[toKey(wd)]){wS+=getPct(toKey(wd));wC++}}weeks.push({avg:wC?Math.round(wS/wC):0});ws.setDate(ws.getDate()+7)}
+
+  let h=`<div class="${pgCls()}">
+    <div style="margin-bottom:20px;padding-top:8px"><h1 style="font-size:30px;font-weight:700;letter-spacing:-0.5px">Review</h1><p style="font-size:14px;color:var(--text2);margin-top:2px">ルーティンの振り返り</p></div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val" style="color:var(--green)">${streak}</div><div class="stat-label">Current Streak</div></div>
+      <div class="stat-card"><div class="stat-val">${best}</div><div class="stat-label">Best Streak</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:${avg30>=70?'var(--green)':avg30>=40?'var(--orange)':'var(--red)'}">${avg30}%</div><div class="stat-label">30日平均</div></div>
+    </div>
+    <div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:14px">Weekly</div>
+      <div class="chart-bars">${last7.map(s=>{const c=s.pct>=80?'var(--green)':s.pct>=50?'var(--orange)':s.pct>0?'#d1d1d6':'#efefef';const dw=['日','月','火','水','木','金','土'][s.date.getDay()];return`<div class="chart-col"><div style="font-size:10px;font-weight:700;color:${s.pct>=50?'var(--text)':'var(--text3)'}">${s.pct>0?s.pct+'%':''}</div><div class="chart-bar" style="height:${Math.max(3,s.pct*0.8)}px;background:${c}"></div><div class="chart-lbl">${dw}</div></div>`}).join('')}</div>
+    </div>
+    <div class="card">
+      <div class="cal-nav"><button onclick="calM--;if(calM<0){calM=11;calY--}render()">‹</button><div class="mo">${mName}</div><button onclick="calM++;if(calM>11){calM=0;calY++}render()">›</button></div>
+      <div class="cal-grid">${DOW.map(d=>`<div class="cal-cell cal-hdr">${d}</div>`).join('')}${Array.from({length:startDow},()=>'<div class="cal-cell empty"></div>').join('')}${Array.from({length:dim},(_,i)=>{const day=i+1,dd=new Date(calY,calM,day),k=toKey(dd),p=getPct(k),isT=k===todayKey();let lv='';if(D.records[k]){lv=p>=80?'l4':p>=60?'l3':p>=40?'l2':p>0?'l1':''}return`<div class="cal-cell day ${lv}${isT?' today':''}" onclick="showTip(event,'${k}',${p})">${day}</div>`}).join('')}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:12px;justify-content:flex-end"><span style="font-size:10px;color:var(--text3)">Less</span><div style="width:12px;height:12px;border-radius:3px;background:#f0f0f2"></div><div style="width:12px;height:12px;border-radius:3px;background:#d4edda"></div><div style="width:12px;height:12px;border-radius:3px;background:#a8d5a2"></div><div style="width:12px;height:12px;border-radius:3px;background:#6ec067"></div><div style="width:12px;height:12px;border-radius:3px;background:#34c759"></div><span style="font-size:10px;color:var(--text3)">More</span></div>
+    </div>
+    <div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:14px">Monthly</div>${weeks.map((w,i)=>{const c=w.avg>=80?'var(--green)':w.avg>=50?'var(--orange)':w.avg>0?'var(--red)':'var(--border)';return`<div class="monthly-row"><div class="m-week">W${i+1}</div><div class="m-bar-bg"><div class="m-bar-fill" style="width:${w.avg}%;background:${c}"></div></div><div class="m-pct" style="color:${c}">${w.avg}%</div></div>`}).join('')}</div>`;
+
+  // Weight chart with period selector
+  const wDays=wChartRange==='week'?7:wChartRange==='month'?30:Math.ceil((new Date()-new Date(2026,2,15))/(86400000))+1;
+  const wHist=getWeightHistory(wDays);
+  if(wHist.length>1){
+    const dataMin=Math.min(...wHist.map(x=>x.w));
+    const dataMax=Math.max(...wHist.map(x=>x.w));
+    const gw=D.goalWeight;
+    const rawMin=Math.min(dataMin,gw);
+    const rawMax=Math.max(dataMax,gw);
+    const pad=Math.max(0.3,(rawMax-rawMin)*0.15);
+    const wMin=rawMin-pad;
+    const wMax=rawMax+pad;
+    const wRange=wMax-wMin||0.1;
+    const svgW=300;
+    const svgH=150;
+    const mLeft=0;
+    const mRight=0;
+    const mTop=5;
+    const mBot=5;
+    const plotW=svgW-mLeft-mRight;
+    const plotH=svgH-mTop-mBot;
+    const points=wHist.map((x,i)=>{
+      const px=mLeft+(wHist.length===1?plotW/2:(i/(wHist.length-1))*plotW);
+      const py=mTop+plotH-(((x.w-wMin)/wRange)*plotH);
+      return{x:px,y:py,w:x.w,date:x.date};
+    });
+    const polyline=points.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const goalY=mTop+plotH-(((gw-wMin)/wRange)*plotH);
+    const lastW=wHist[wHist.length-1].w;
+    const firstW=wHist[0].w;
+    const totalDiff=Math.round((lastW-firstW)*10)/10;
+    h+=`<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:15px;font-weight:700">Weight</div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:20px;font-weight:700">${lastW.toFixed(1)}</span><span style="font-size:11px;color:var(--text3)">kg</span>${totalDiff!==0?`<span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:4px;${totalDiff<=0?'color:var(--green);background:rgba(52,199,89,0.1)':'color:var(--red);background:rgba(255,59,48,0.1)'}">${totalDiff>0?'+':''}${totalDiff.toFixed(1)}</span>`:''}</div></div>
+    <div style="display:flex;gap:0;background:var(--bg);border-radius:8px;padding:2px;margin-bottom:12px"><button onclick="wChartRange='week';render(true)" style="flex:1;padding:5px 0;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;${wChartRange==='week'?'background:var(--accent);color:#fff':'color:var(--text2);background:transparent'}">1W</button><button onclick="wChartRange='month';render(true)" style="flex:1;padding:5px 0;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;${wChartRange==='month'?'background:var(--accent);color:#fff':'color:var(--text2);background:transparent'}">1M</button><button onclick="wChartRange='all';render(true)" style="flex:1;padding:5px 0;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;${wChartRange==='all'?'background:var(--accent);color:#fff':'color:var(--text2);background:transparent'}">All</button></div>
+    <div style="position:relative">
+      <svg viewBox="0 0 ${svgW} ${svgH}" style="width:100%;height:auto;display:block" preserveAspectRatio="none">
+        <line x1="${mLeft}" y1="${goalY.toFixed(1)}" x2="${svgW-mRight}" y2="${goalY.toFixed(1)}" stroke="#34c759" stroke-width="0.8" stroke-dasharray="4,3"/>
+        <polyline points="${polyline}" fill="none" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+        ${points.map(p=>{const dl=p.date.toLocaleDateString('ja-JP',{month:'short',day:'numeric',weekday:'short'});return`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${wHist.length>40?'1.5':'2.5'}" fill="#1d1d1f"/><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="8" fill="transparent" onclick="showWtip(event,'${dl}',${p.w})" style="cursor:pointer"/>`}).join('')}
+      </svg>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:6px"><span>${wHist[0].date.toLocaleDateString('ja-JP',{month:'short',day:'numeric'})}</span><span style="color:var(--green)">目標 ${D.goalWeight}kg</span><span>${wHist[wHist.length-1].date.toLocaleDateString('ja-JP',{month:'short',day:'numeric'})}</span></div>
+    </div></div>`;
+  }
+
+  h+=`</div>`;$('app').innerHTML=h;
+}
+
+function showTip(e,k,p){const tt=$('tooltip'),d=parseKey(k),r=getRec(k),t=r.type||autoType(d);const lb=d.toLocaleDateString('ja-JP',{month:'short',day:'numeric',weekday:'short'});tt.textContent=`${lb} — ${D.types[t]?.label||''} — ${p}%`;const rc=e.target.getBoundingClientRect();tt.style.left=Math.min(rc.left,innerWidth-200)+'px';tt.style.top=(rc.top-40)+'px';tt.classList.add('show');setTimeout(()=>tt.classList.remove('show'),2000)}
+
+function showWtip(e,dateLabel,w){const tt=$('tooltip');tt.textContent=`${dateLabel}  ${w.toFixed(1)} kg`;const rc=e.target.getBoundingClientRect();tt.style.left=Math.min(Math.max(8,rc.left-30),innerWidth-140)+'px';tt.style.top=(rc.top-40)+'px';tt.classList.add('show');setTimeout(()=>tt.classList.remove('show'),2000)}
+
+// ── SETTINGS ──
+function rSettings(){
+  if(!settingsDT)settingsDT=Object.keys(D.types)[0];
+  const isCountdown=settingsDT==='countdown';
+  const isWeight=settingsDT==='weight';
+  const dtBtns=Object.entries(D.types).map(([k,v])=>`<button class="dt-btn${settingsDT===k?' on':''}" onclick="settingsDT='${k}';editDT=null;render()">${v.icon} ${v.label}</button>`).join('')+`<button class="dt-btn${isCountdown?' on':''}" onclick="settingsDT='countdown';editDT=null;render()">📅 CD</button><button class="dt-btn${isWeight?' on':''}" onclick="settingsDT='weight';editDT=null;render()">⚖ 体重</button>`;
+
+  let h=`<div class="${pgCls()}"><div style="margin-bottom:20px;padding-top:8px"><h1 style="font-size:30px;font-weight:700;letter-spacing:-0.5px">Settings</h1><p style="font-size:14px;color:var(--text2);margin-top:2px">ルーティン・イベントの編集</p></div><div class="dt-row" style="margin-bottom:12px">${dtBtns}</div>`;
+
+  if(isWeight){
+    const lastW=getLastWeight();
+    const goalDiff=lastW?Math.round((lastW-D.goalWeight)*10)/10:null;
+    h+=`<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px;padding:0 2px">⚖ 体重設定</div>`;
+    h+=`<div class="routine-card" style="margin-bottom:20px;padding:16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div style="font-size:13px;font-weight:600;color:var(--text2)">目標体重</div><div style="display:flex;align-items:center;gap:6px"><button onclick="D.goalWeight=Math.round((D.goalWeight-0.5)*10)/10;save();render(true)" style="width:28px;height:28px;border-radius:14px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text2);padding:0">−</button><span onclick="var v=prompt('目標体重 (kg)',D.goalWeight);if(v&&!isNaN(v)){D.goalWeight=parseFloat(v);save();render(true)}" style="cursor:pointer;font-size:22px;font-weight:700;min-width:50px;text-align:center">${D.goalWeight}</span><span style="font-size:12px;color:var(--text3)">kg</span><button onclick="D.goalWeight=Math.round((D.goalWeight+0.5)*10)/10;save();render(true)" style="width:28px;height:28px;border-radius:14px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text2);padding:0">+</button></div></div>`;
+    if(lastW){
+      h+=`<div style="border-top:0.5px solid var(--border);padding-top:12px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;color:var(--text2)">現在の体重</div><div style="font-size:18px;font-weight:700">${lastW.toFixed(1)} <span style="font-size:11px;color:var(--text3);font-weight:400">kg</span></div></div>`;
+      if(goalDiff!==null){h+=`<div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;color:var(--text2)">目標まで</div><div style="font-size:15px;font-weight:700;color:${goalDiff<=0?'var(--green)':'var(--orange)'}">${goalDiff>0?'+':''}${goalDiff.toFixed(1)} kg</div></div>`;}
+    }
+    h+=`</div>`;
+  } else if(isCountdown){
+    const evHtml=D.events.length?D.events.sort((a,b)=>a.date.localeCompare(b.date)).map((e,i)=>{const days=daysUntil(e.date);const past=days<0;return`<div class="edit-row" style="gap:8px"><input type="date" value="${e.date}" onchange="evDate(${i},this.value)" style="border:none;background:var(--bg);border-radius:6px;padding:4px 6px;font-size:12px;font-family:inherit;color:var(--text);width:130px"/><input style="flex:1;font-size:14px" value="${e.label}" onblur="evLabel(${i},this.value)"/><span style="font-size:11px;font-weight:700;color:${past?'var(--text3)':days<=7?'var(--red)':days<=30?'var(--orange)':'var(--text)'};white-space:nowrap;min-width:32px;text-align:right">${past?'済':days+'日'}</span><button class="del" onclick="evDel(${i})">×</button></div>`}).join(''):'<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">イベントなし</div>';
+    h+=`<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px;padding:0 2px">📅 カウントダウン</div><div class="routine-card" style="margin-bottom:20px">${evHtml}<button class="add-btn" onclick="evAdd()">＋ イベントを追加</button></div>`;
+  } else {
+    const dt=D.types[settingsDT];
+    const isEditing=editDT===settingsDT;
+    const editHtml=dt.routines.map((r,i)=>{const[hh,mm]=r.time.split(':');return`<div class="edit-row"><div style="display:flex;align-items:center;gap:1px;flex-shrink:0"><select onchange="eTimeSel('${settingsDT}',${i},this.value,this.nextElementSibling.nextElementSibling.value)" style="border:none;background:var(--bg);border-radius:6px 0 0 6px;padding:5px 2px;font-size:13px;font-weight:700;font-family:inherit;color:var(--text);width:42px;text-align:center;appearance:none;-webkit-appearance:none">${Array.from({length:24},(_,h)=>`<option value="${h}"${parseInt(hh)===h?' selected':''}>${String(h).padStart(2,'0')}</option>`).join('')}</select><span style="font-size:13px;font-weight:700;color:var(--text3)">:</span><select onchange="eTimeSel('${settingsDT}',${i},this.previousElementSibling.previousElementSibling.value,this.value)" style="border:none;background:var(--bg);border-radius:0 6px 6px 0;padding:5px 2px;font-size:13px;font-weight:700;font-family:inherit;color:var(--text);width:42px;text-align:center;appearance:none;-webkit-appearance:none">${['00','05','10','15','20','25','30','35','40','45','50','55'].map(m=>`<option value="${m}"${mm===m?' selected':''}>${m}</option>`).join('')}</select></div><input style="flex:1;font-size:14px" value="${r.task}" onblur="eTask('${settingsDT}',${i},this.value)"/><button class="del" onclick="delR('${settingsDT}',${i})">×</button></div>`}).join('')+`<button class="add-btn" onclick="addR('${settingsDT}')">＋ ルーティンを追加</button>`;
+    const viewHtml=dt.routines.map(r=>`<div class="routine-item"><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span></div>`).join('');
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">${dt.icon} ${dt.label}のルーティン</div><button class="edit-btn" onclick="editDT=${isEditing?'null':`'${settingsDT}'`};render(true)">${isEditing?'完了':'編集'}</button></div><div class="routine-card" style="margin-bottom:20px">${isEditing?editHtml:viewHtml}</div>`;
+  }
+
+  h+=`</div>`;$('app').innerHTML=h;
+}
+
+function eTime(k,i,v){if(v.match(/^\d{1,2}:\d{2}$/)){D.types[k].routines[i].time=v;sortR(k);save();render(true)}}
+function eTimeSel(k,i,h,m){D.types[k].routines[i].time=parseInt(h)+':'+m;sortR(k);save();render(true)}
+function eTask(k,i,v){if(v.trim()){D.types[k].routines[i].task=v.trim();save();render(true)}}
+function delR(k,i){D.types[k].routines.splice(i,1);save();render(true)}
+function addR(k){D.types[k].routines.push({id:'c'+Date.now(),time:'12:00',task:'新しいルーティン'});sortR(k);save();render(true)}
+function sortR(k){D.types[k].routines.sort((a,b)=>timeToMin(a.time)-timeToMin(b.time))}
+
+// Event countdown CRUD
+function evDate(i,v){if(v){D.events[i].date=v;save();render(true)}}
+function evLabel(i,v){if(v.trim()){D.events[i].label=v.trim();save();render(true)}}
+function evDel(i){D.events.splice(i,1);save();render(true)}
+function evAdd(){const d=new Date();d.setDate(d.getDate()+30);D.events.push({id:'ev'+Date.now(),date:toKey(d),label:'新しいイベント'});save();render(true)}
+
+render();
+</script>
+</body>
+</html>
