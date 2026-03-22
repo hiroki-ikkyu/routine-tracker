@@ -96,6 +96,10 @@ input,select{font-family:inherit}
 .page{display:none}.page.active{display:block}
 .page.animate{animation:fadeIn 0.25s ease}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.scroll-area{overflow:auto;-webkit-overflow-scrolling:touch}
+.scroll-area::-webkit-scrollbar{width:4px;height:4px;display:block!important}
+.scroll-area::-webkit-scrollbar-track{background:var(--border);border-radius:4px}
+.scroll-area::-webkit-scrollbar-thumb{background:var(--text3);border-radius:4px;min-height:20px;min-width:20px}
 </style>
 </head>
 <body>
@@ -177,7 +181,7 @@ const DEFAULT_TYPES={
   ]}
 };
 
-function load(){try{const r=localStorage.getItem(SK);if(r){const d=JSON.parse(r);if(!d.events)d.events=[];if(!d.todos)d.todos={};if(!d.weight)d.weight={};if(!d.goalWeight)d.goalWeight=70;return d}}catch(e){}return{types:JSON.parse(JSON.stringify(DEFAULT_TYPES)),records:{},events:[],todos:{},weight:{},goalWeight:70}}
+function load(){try{const r=localStorage.getItem(SK);if(r){const d=JSON.parse(r);if(!d.events)d.events=[];if(!d.todos)d.todos={};if(!d.weight)d.weight={};if(!d.goalWeight)d.goalWeight=70;if(!d.todoDismissed)d.todoDismissed={};return d}}catch(e){}return{types:JSON.parse(JSON.stringify(DEFAULT_TYPES)),records:{},events:[],todos:{},weight:{},goalWeight:70,todoDismissed:{}}}
 function save(){localStorage.setItem(SK,JSON.stringify(D))}
 function autoType(date){const w=date.getDay();return(w===0||w===6)?'weekend':'office'}
 function getRec(k){return D.records[k]||{type:null,done:[]}}
@@ -192,32 +196,24 @@ function adjustWeight(k,delta){const cur=D.weight[k]||D.goalWeight||70;D.weight[
 function getLastWeight(){const d=new Date();for(let i=0;i<60;i++){const k=toKey(d);if(D.weight[k])return D.weight[k];d.setDate(d.getDate()-1)}return null}
 function getWeightHistory(days){const arr=[];const d=new Date();for(let i=days-1;i>=0;i--){const dd=new Date(d);dd.setDate(d.getDate()-i);const k=toKey(dd);if(D.weight[k])arr.push({date:dd,w:D.weight[k]});}return arr}
 
-// Todo functions with auto carry-forward
+// Todo functions - carry forward uncompleted from previous day only
 function getTodos(dateKey){
-  // Carry forward: find uncompleted todos from past days
-  const target=parseKey(dateKey);
-  const existing=D.todos[dateKey]||[];
-  const carried=[];
-  const d=new Date(target);
-  for(let i=1;i<=30;i++){
-    d.setDate(d.getDate()-1);
-    const k=toKey(d);
-    const past=D.todos[k]||[];
-    past.forEach(t=>{
-      if(!t.done && !existing.some(e=>e.fromId===t.id) && !carried.some(c=>c.fromId===t.id)){
-        carried.push({id:'cf_'+t.id+'_'+dateKey,text:t.text,done:false,fromId:t.id,fromDate:k});
-      }
-    });
-  }
-  // Auto-save carried items into this day
-  if(carried.length){
-    if(!D.todos[dateKey])D.todos[dateKey]=[];
-    carried.forEach(c=>{
-      if(!D.todos[dateKey].some(e=>e.fromId===c.fromId))D.todos[dateKey].push(c);
-    });
-    save();
-  }
-  return D.todos[dateKey]||[];
+  if(!D.todos[dateKey])D.todos[dateKey]=[];
+  const existing=D.todos[dateKey];
+  const dismissed=(D.todoDismissed&&D.todoDismissed[dateKey])||[];
+  // Check previous day for uncompleted tasks to carry forward
+  const prev=new Date(parseKey(dateKey));prev.setDate(prev.getDate()-1);
+  const prevKey=toKey(prev);
+  const prevTodos=D.todos[prevKey]||[];
+  let added=false;
+  prevTodos.forEach(t=>{
+    if(!t.done && !dismissed.includes(t.id) && !existing.some(e=>e.fromId===t.id||e.id===t.id)){
+      existing.push({id:'cf_'+t.id+'_'+dateKey,text:t.text,done:false,fromId:t.id});
+      added=true;
+    }
+  });
+  if(added)save();
+  return existing;
 }
 
 function addTodo(dateKey,text){
@@ -232,7 +228,16 @@ function toggleTodo(dateKey,id){
   save();render(true);
 }
 function delTodo(dateKey,id){
-  if(D.todos[dateKey])D.todos[dateKey]=D.todos[dateKey].filter(x=>x.id!==id);
+  if(D.todos[dateKey]){
+    const item=D.todos[dateKey].find(x=>x.id===id);
+    // If this was a carried-forward item, remember to not carry it again
+    if(item&&item.fromId){
+      if(!D.todoDismissed)D.todoDismissed={};
+      if(!D.todoDismissed[dateKey])D.todoDismissed[dateKey]=[];
+      if(!D.todoDismissed[dateKey].includes(item.fromId))D.todoDismissed[dateKey].push(item.fromId);
+    }
+    D.todos[dateKey]=D.todos[dateKey].filter(x=>x.id!==id);
+  }
   save();render(true);
 }
 
@@ -294,10 +299,10 @@ function rToday(){
   const sortedTodos=[...pendingTodos,...doneTodos];
 
   const isToday=dk===todayKey();
-  let h=`<div class="${pgCls()}">
-    <div style="margin-bottom:14px;padding-top:8px">
-      <h1 style="font-size:30px;font-weight:700;letter-spacing:-0.5px">Routines</h1>
-      <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+  let h=`<div class="${pgCls()}" style="display:flex;flex-direction:column;height:calc(100vh - 70px);overflow:hidden;margin:-16px">
+    <div style="flex-shrink:0;padding:0 16px;padding-top:var(--safe-top)">
+    <div style="margin-bottom:10px;padding-top:8px">
+      <div style="display:flex;align-items:center;gap:6px">
         <p style="font-size:14px;color:var(--text2)">${selDate.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'})} ${D.types[dt].icon} ${D.types[dt].label}</p>${isToday?'<span style="background:#d1d1d6;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px">TODAY</span>':''}
         <button onclick="calOpen=!calOpen;render(true)" style="font-size:10px;color:var(--text3);padding:2px 4px;transition:transform 0.3s;transform:rotate(${calOpen?'180':'0'}deg)">▼</button>
       </div>
@@ -321,23 +326,25 @@ function rToday(){
 
   h+=`<div style="display:flex;gap:8px;margin-bottom:14px;align-items:stretch">
       <!-- Left: Countdown -->
-      <div style="flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px;min-width:0">
+      <div style="flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px;min-width:0;display:flex;flex-direction:column">
         <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Countdown</div>
-        ${upcoming.length?upcoming.slice(0,3).map(e=>{
+        <div class="scroll-area" style="flex:1;max-height:${upcoming.length>5?'120px':'none'}">
+        ${upcoming.length?upcoming.map(e=>{
           const days=daysUntil(e.date);
           const d=parseKey(e.date);
           const dateLabel=d.toLocaleDateString('ja-JP',{month:'short',day:'numeric'});
           const urgency=days<=7?'var(--red)':days<=30?'var(--orange)':'var(--text)';
-          return`<div style="display:flex;align-items:center;gap:8px;padding:2px 0">
-            <div style="font-size:15px;font-weight:700;color:${urgency};width:40px;text-align:right;flex-shrink:0">${days}<span style="font-size:9px;font-weight:500;color:var(--text3)">日</span></div>
-            <div style="font-size:9px;color:var(--text3);width:40px;flex-shrink:0">${dateLabel}</div>
-            <div style="font-size:11px;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.label}</div>
+          return`<div class="scroll-area" style="display:flex;align-items:center;gap:4px;padding:2px 0;overflow-x:auto;overflow-y:hidden">
+            <div style="font-size:14px;font-weight:700;color:${urgency};width:32px;text-align:right;flex-shrink:0">${days}<span style="font-size:8px;font-weight:500;color:var(--text3)">日</span></div>
+            <div style="font-size:8px;color:var(--text3);width:34px;flex-shrink:0">${dateLabel}</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap">${e.label}</div>
           </div>`}).join(''):'<div style="font-size:11px;color:var(--text3);padding:4px 0">イベントなし</div>'}
+        </div>
       </div>
       <!-- Right: To Do -->
       <div style="flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px;min-width:0;display:flex;flex-direction:column">
         <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">To Do</div>
-        <div id="todoList" style="flex:1;overflow-y:auto;max-height:120px">
+        <div id="todoList" class="scroll-area" style="flex:1;max-height:${sortedTodos.length>4?'100px':'none'}">
           ${sortedTodos.length?sortedTodos.map((t,idx)=>`<div class="todo-row" draggable="true" data-idx="${idx}" data-id="${t.id}" style="display:flex;align-items:center;gap:5px;padding:2px 0;cursor:default">
             <span class="drag-grip" style="cursor:grab;color:var(--text3);font-size:10px;padding:0 2px;touch-action:none">⠿</span>
             <button onclick="toggleTodo('${dk}','${t.id}')" style="width:16px;height:16px;border-radius:8px;border:1.5px solid ${t.done?'var(--green)':'var(--border)'};background:${t.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
@@ -372,12 +379,13 @@ function rToday(){
       <button onclick="adjustWeight('${dk}',0.1)" style="width:20px;height:20px;border-radius:10px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2);padding:0">+</button>
     </div>
   </div>
-  <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>`;
+  <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div></div><div id="routineScroll" style="flex:1;overflow-y:auto;padding:0 16px 16px;-webkit-overflow-scrolling:touch">`;
 
   BLOCKS.forEach(b=>{const items=grouped[b.id];if(!items.length)return;
     h+=`<div class="time-block"><div class="time-block-header"><span class="time-block-label">${b.label}</span><span style="font-size:10px;color:var(--text3);font-weight:500">${b.range}</span><div class="time-block-line"></div></div><div class="routine-card">${items.map(r=>{const d=done.includes(r.id);return`<button class="routine-item${d?' done':''}" onclick="toggle('${dk}','${dt}','${r.id}')"><div class="r-check${d?' done':''}"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span></button>`}).join('')}</div></div>`});
 
-  h+='</div>';$('app').innerHTML=h;
+  h+='</div></div>';$('app').innerHTML=h;
+  if(_noAnim&&_rScroll>0){const rs=$('routineScroll');if(rs)rs.scrollTop=_rScroll;}
   initTodoDrag(dk);
 }
 
@@ -432,7 +440,8 @@ function initTodoDrag(dk){
 function pickDate(y,m,d){selDate=new Date(y,m,d);aDT=null;render()}
 
 // ④ FIX: toggle preserves scroll
-function toggle(dk,dt,id){if(!D.records[dk])D.records[dk]={type:dt,done:[]};const r=D.records[dk];r.type=dt;r.done=r.done.includes(id)?r.done.filter(x=>x!==id):[...r.done,id];save();render(true)}
+let _rScroll=0;
+function toggle(dk,dt,id){const rs=$('routineScroll');if(rs)_rScroll=rs.scrollTop;if(!D.records[dk])D.records[dk]={type:dt,done:[]};const r=D.records[dk];r.type=dt;r.done=r.done.includes(id)?r.done.filter(x=>x!==id):[...r.done,id];save();render(true)}
 function setDT(t){aDT=t;const dk=toKey(selDate);if(!D.records[dk])D.records[dk]={type:t,done:[]};else D.records[dk].type=t;save();render(true)}
 
 // ── REVIEW ──
@@ -446,8 +455,25 @@ function rReview(){
   const mName=calDate.toLocaleDateString('ja-JP',{year:'numeric',month:'long'});
   const weeks=[];let ws=new Date(calY,calM,1);while(ws.getMonth()===calM){let wS=0,wC=0;for(let i=0;i<7;i++){const wd=new Date(ws);wd.setDate(ws.getDate()+i);if(wd.getMonth()===calM&&D.records[toKey(wd)]){wS+=getPct(toKey(wd));wC++}}weeks.push({avg:wC?Math.round(wS/wC):0});ws.setDate(ws.getDate()+7)}
 
+  // Weight chart - compute first to place at top
+  const wDays=wChartRange==='week'?7:wChartRange==='month'?30:Math.ceil((new Date()-new Date(2026,2,15))/(86400000))+1;
+  const wHist=getWeightHistory(wDays);
+  let weightHtml='';
+  if(wHist.length>1){
+    const dataMin=Math.min(...wHist.map(x=>x.w));const dataMax=Math.max(...wHist.map(x=>x.w));const gw=D.goalWeight;
+    const rawMin=Math.min(dataMin,gw);const rawMax=Math.max(dataMax,gw);const pad=Math.max(0.3,(rawMax-rawMin)*0.15);
+    const wMin=rawMin-pad;const wMax=rawMax+pad;const wRange=wMax-wMin||0.1;
+    const svgW=300,svgH=150,mLeft=0,mRight=0,mTop=5,mBot=5;const plotW=svgW-mLeft-mRight;const plotH=svgH-mTop-mBot;
+    const points=wHist.map((x,i)=>{const px=mLeft+(wHist.length===1?plotW/2:(i/(wHist.length-1))*plotW);const py=mTop+plotH-(((x.w-wMin)/wRange)*plotH);return{x:px,y:py,w:x.w,date:x.date}});
+    const polyline=points.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const goalY=mTop+plotH-(((gw-wMin)/wRange)*plotH);const lastW=wHist[wHist.length-1].w;const firstW=wHist[0].w;
+    const totalDiff=Math.round((lastW-firstW)*10)/10;
+    weightHtml=`<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:15px;font-weight:700">Weight</div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:20px;font-weight:700">${lastW.toFixed(1)}</span><span style="font-size:11px;color:var(--text3)">kg</span>${totalDiff!==0?`<span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:4px;${totalDiff<=0?'color:var(--green);background:rgba(52,199,89,0.1)':'color:var(--red);background:rgba(255,59,48,0.1)'}">${totalDiff>0?'+':''}${totalDiff.toFixed(1)}</span>`:''}</div></div><div style="display:flex;gap:0;background:var(--bg);border-radius:8px;padding:2px;margin-bottom:12px"><button onclick="wChartRange='week';render(true)" style="flex:1;padding:5px 0;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;${wChartRange==='week'?'background:var(--accent);color:#fff':'color:var(--text2);background:transparent'}">1W</button><button onclick="wChartRange='month';render(true)" style="flex:1;padding:5px 0;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;${wChartRange==='month'?'background:var(--accent);color:#fff':'color:var(--text2);background:transparent'}">1M</button><button onclick="wChartRange='all';render(true)" style="flex:1;padding:5px 0;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;${wChartRange==='all'?'background:var(--accent);color:#fff':'color:var(--text2);background:transparent'}">All</button></div><div style="position:relative"><svg viewBox="0 0 ${svgW} ${svgH}" style="width:100%;height:auto;display:block" preserveAspectRatio="none"><line x1="${mLeft}" y1="${goalY.toFixed(1)}" x2="${svgW-mRight}" y2="${goalY.toFixed(1)}" stroke="#34c759" stroke-width="0.8" stroke-dasharray="4,3"/><polyline points="${polyline}" fill="none" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>${points.map(p=>{const dl=p.date.toLocaleDateString('ja-JP',{month:'short',day:'numeric',weekday:'short'});return`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${wHist.length>40?'1.5':'2.5'}" fill="#1d1d1f"/><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="8" fill="transparent" onclick="showWtip(event,'${dl}',${p.w})" style="cursor:pointer"/>`}).join('')}</svg><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:6px"><span>${wHist[0].date.toLocaleDateString('ja-JP',{month:'short',day:'numeric'})}</span><span style="color:var(--green)">目標 ${D.goalWeight}kg</span><span>${wHist[wHist.length-1].date.toLocaleDateString('ja-JP',{month:'short',day:'numeric'})}</span></div></div></div>`;
+  }
+
   let h=`<div class="${pgCls()}">
-    <div style="margin-bottom:20px;padding-top:8px"><h1 style="font-size:30px;font-weight:700;letter-spacing:-0.5px">Review</h1><p style="font-size:14px;color:var(--text2);margin-top:2px">ルーティンの振り返り</p></div>
+    <div style="padding-top:8px"></div>
+    ${weightHtml}
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-val" style="color:var(--green)">${streak}</div><div class="stat-label">Current Streak</div></div>
       <div class="stat-card"><div class="stat-val">${best}</div><div class="stat-label">Best Streak</div></div>
@@ -463,49 +489,6 @@ function rReview(){
     </div>
     <div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:14px">Monthly</div>${weeks.map((w,i)=>{const c=w.avg>=80?'var(--green)':w.avg>=50?'var(--orange)':w.avg>0?'var(--red)':'var(--border)';return`<div class="monthly-row"><div class="m-week">W${i+1}</div><div class="m-bar-bg"><div class="m-bar-fill" style="width:${w.avg}%;background:${c}"></div></div><div class="m-pct" style="color:${c}">${w.avg}%</div></div>`}).join('')}</div>`;
 
-  // Weight chart with period selector
-  const wDays=wChartRange==='week'?7:wChartRange==='month'?30:Math.ceil((new Date()-new Date(2026,2,15))/(86400000))+1;
-  const wHist=getWeightHistory(wDays);
-  if(wHist.length>1){
-    const dataMin=Math.min(...wHist.map(x=>x.w));
-    const dataMax=Math.max(...wHist.map(x=>x.w));
-    const gw=D.goalWeight;
-    const rawMin=Math.min(dataMin,gw);
-    const rawMax=Math.max(dataMax,gw);
-    const pad=Math.max(0.3,(rawMax-rawMin)*0.15);
-    const wMin=rawMin-pad;
-    const wMax=rawMax+pad;
-    const wRange=wMax-wMin||0.1;
-    const svgW=300;
-    const svgH=150;
-    const mLeft=0;
-    const mRight=0;
-    const mTop=5;
-    const mBot=5;
-    const plotW=svgW-mLeft-mRight;
-    const plotH=svgH-mTop-mBot;
-    const points=wHist.map((x,i)=>{
-      const px=mLeft+(wHist.length===1?plotW/2:(i/(wHist.length-1))*plotW);
-      const py=mTop+plotH-(((x.w-wMin)/wRange)*plotH);
-      return{x:px,y:py,w:x.w,date:x.date};
-    });
-    const polyline=points.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-    const goalY=mTop+plotH-(((gw-wMin)/wRange)*plotH);
-    const lastW=wHist[wHist.length-1].w;
-    const firstW=wHist[0].w;
-    const totalDiff=Math.round((lastW-firstW)*10)/10;
-    h+=`<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:15px;font-weight:700">Weight</div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:20px;font-weight:700">${lastW.toFixed(1)}</span><span style="font-size:11px;color:var(--text3)">kg</span>${totalDiff!==0?`<span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:4px;${totalDiff<=0?'color:var(--green);background:rgba(52,199,89,0.1)':'color:var(--red);background:rgba(255,59,48,0.1)'}">${totalDiff>0?'+':''}${totalDiff.toFixed(1)}</span>`:''}</div></div>
-    <div style="display:flex;gap:0;background:var(--bg);border-radius:8px;padding:2px;margin-bottom:12px"><button onclick="wChartRange='week';render(true)" style="flex:1;padding:5px 0;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;${wChartRange==='week'?'background:var(--accent);color:#fff':'color:var(--text2);background:transparent'}">1W</button><button onclick="wChartRange='month';render(true)" style="flex:1;padding:5px 0;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;${wChartRange==='month'?'background:var(--accent);color:#fff':'color:var(--text2);background:transparent'}">1M</button><button onclick="wChartRange='all';render(true)" style="flex:1;padding:5px 0;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;${wChartRange==='all'?'background:var(--accent);color:#fff':'color:var(--text2);background:transparent'}">All</button></div>
-    <div style="position:relative">
-      <svg viewBox="0 0 ${svgW} ${svgH}" style="width:100%;height:auto;display:block" preserveAspectRatio="none">
-        <line x1="${mLeft}" y1="${goalY.toFixed(1)}" x2="${svgW-mRight}" y2="${goalY.toFixed(1)}" stroke="#34c759" stroke-width="0.8" stroke-dasharray="4,3"/>
-        <polyline points="${polyline}" fill="none" stroke="#1d1d1f" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
-        ${points.map(p=>{const dl=p.date.toLocaleDateString('ja-JP',{month:'short',day:'numeric',weekday:'short'});return`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${wHist.length>40?'1.5':'2.5'}" fill="#1d1d1f"/><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="8" fill="transparent" onclick="showWtip(event,'${dl}',${p.w})" style="cursor:pointer"/>`}).join('')}
-      </svg>
-      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:6px"><span>${wHist[0].date.toLocaleDateString('ja-JP',{month:'short',day:'numeric'})}</span><span style="color:var(--green)">目標 ${D.goalWeight}kg</span><span>${wHist[wHist.length-1].date.toLocaleDateString('ja-JP',{month:'short',day:'numeric'})}</span></div>
-    </div></div>`;
-  }
-
   h+=`</div>`;$('app').innerHTML=h;
 }
 
@@ -520,7 +503,7 @@ function rSettings(){
   const isWeight=settingsDT==='weight';
   const dtBtns=Object.entries(D.types).map(([k,v])=>`<button class="dt-btn${settingsDT===k?' on':''}" onclick="settingsDT='${k}';editDT=null;render()">${v.icon} ${v.label}</button>`).join('')+`<button class="dt-btn${isCountdown?' on':''}" onclick="settingsDT='countdown';editDT=null;render()">📅 CD</button><button class="dt-btn${isWeight?' on':''}" onclick="settingsDT='weight';editDT=null;render()">⚖ 体重</button>`;
 
-  let h=`<div class="${pgCls()}"><div style="margin-bottom:20px;padding-top:8px"><h1 style="font-size:30px;font-weight:700;letter-spacing:-0.5px">Settings</h1><p style="font-size:14px;color:var(--text2);margin-top:2px">ルーティン・イベントの編集</p></div><div class="dt-row" style="margin-bottom:12px">${dtBtns}</div>`;
+  let h=`<div class="${pgCls()}"><div style="padding-top:8px"></div><div class="dt-row" style="margin-bottom:12px">${dtBtns}</div>`;
 
   if(isWeight){
     const lastW=getLastWeight();
@@ -538,16 +521,28 @@ function rSettings(){
   } else {
     const dt=D.types[settingsDT];
     const isEditing=editDT===settingsDT;
-    const editHtml=dt.routines.map((r,i)=>{const[hh,mm]=r.time.split(':');return`<div class="edit-row"><div style="display:flex;align-items:center;gap:1px;flex-shrink:0"><select onchange="eTimeSel('${settingsDT}',${i},this.value,this.nextElementSibling.nextElementSibling.value)" style="border:none;background:var(--bg);border-radius:6px 0 0 6px;padding:5px 2px;font-size:13px;font-weight:700;font-family:inherit;color:var(--text);width:42px;text-align:center;appearance:none;-webkit-appearance:none">${Array.from({length:24},(_,h)=>`<option value="${h}"${parseInt(hh)===h?' selected':''}>${String(h).padStart(2,'0')}</option>`).join('')}</select><span style="font-size:13px;font-weight:700;color:var(--text3)">:</span><select onchange="eTimeSel('${settingsDT}',${i},this.previousElementSibling.previousElementSibling.value,this.value)" style="border:none;background:var(--bg);border-radius:0 6px 6px 0;padding:5px 2px;font-size:13px;font-weight:700;font-family:inherit;color:var(--text);width:42px;text-align:center;appearance:none;-webkit-appearance:none">${['00','05','10','15','20','25','30','35','40','45','50','55'].map(m=>`<option value="${m}"${mm===m?' selected':''}>${m}</option>`).join('')}</select></div><input style="flex:1;font-size:14px" value="${r.task}" onblur="eTask('${settingsDT}',${i},this.value)"/><button class="del" onclick="delR('${settingsDT}',${i})">×</button></div>`}).join('')+`<button class="add-btn" onclick="addR('${settingsDT}')">＋ ルーティンを追加</button>`;
+    const editHtml=dt.routines.map((r,i)=>{return`<div class="edit-row"><input inputmode="numeric" pattern="[0-9]*" value="${r.time}" placeholder="630" onfocus="this.select()" onblur="eTimeNum('${settingsDT}',${i},this.value)" onkeydown="if(event.key==='Enter'){this.blur()}" style="border:none;background:var(--bg);border-radius:6px;padding:5px 6px;font-size:14px;font-weight:700;font-family:inherit;color:var(--text);width:60px;flex-shrink:0;text-align:center"/><input style="flex:1;font-size:14px" value="${r.task}" onblur="eTask('${settingsDT}',${i},this.value)"/><button class="del" onclick="delR('${settingsDT}',${i})">×</button></div>`}).join('')+`<button class="add-btn" onclick="addR('${settingsDT}')">＋ ルーティンを追加</button>`;
     const viewHtml=dt.routines.map(r=>`<div class="routine-item"><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span></div>`).join('');
     h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">${dt.icon} ${dt.label}のルーティン</div><button class="edit-btn" onclick="editDT=${isEditing?'null':`'${settingsDT}'`};render(true)">${isEditing?'完了':'編集'}</button></div><div class="routine-card" style="margin-bottom:20px">${isEditing?editHtml:viewHtml}</div>`;
   }
 
+  
   h+=`</div>`;$('app').innerHTML=h;
 }
 
 function eTime(k,i,v){if(v.match(/^\d{1,2}:\d{2}$/)){D.types[k].routines[i].time=v;sortR(k);save();render(true)}}
 function eTimeSel(k,i,h,m){D.types[k].routines[i].time=parseInt(h)+':'+m;sortR(k);save();render(true)}
+function eTimeNative(k,i,v){if(v){const[h,m]=v.split(':');D.types[k].routines[i].time=parseInt(h)+':'+m;sortR(k);save();render(true)}}
+function eTimeNum(k,i,v){
+  v=v.replace(/[^0-9:]/g,'');
+  let h,m;
+  if(v.includes(':')){const p=v.split(':');h=parseInt(p[0])||0;m=parseInt(p[1])||0;}
+  else if(v.length<=2){h=parseInt(v)||0;m=0;}
+  else{m=parseInt(v.slice(-2))||0;h=parseInt(v.slice(0,-2))||0;}
+  h=Math.max(0,Math.min(23,h));m=Math.max(0,Math.min(59,m));
+  D.types[k].routines[i].time=h+':'+String(m).padStart(2,'0');
+  sortR(k);save();render(true);
+}
 function eTask(k,i,v){if(v.trim()){D.types[k].routines[i].task=v.trim();save();render(true)}}
 function delR(k,i){D.types[k].routines.splice(i,1);save();render(true)}
 function addR(k){D.types[k].routines.push({id:'c'+Date.now(),time:'12:00',task:'新しいルーティン'});sortR(k);save();render(true)}
