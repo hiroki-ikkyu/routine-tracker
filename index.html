@@ -916,7 +916,7 @@ function rSettings(){
   const isWeight=settingsDT==='weight';
   const isTodo=settingsDT==='todo';
   const isGoals=settingsDT==='goals';
-  const dtBtns=Object.entries(D.types).map(([k,v])=>`<button class="dt-btn${settingsDT===k?' on':''}" onclick="settingsDT='${k}';editDT=null;render()">${v.icon} ${v.label}</button>`).join('')+`<button class="dt-btn${isCountdown?' on':''}" onclick="settingsDT='countdown';editDT=null;render()">📅 CD</button><button class="dt-btn${isTodo?' on':''}" onclick="settingsDT='todo';editDT=null;render()">✓ ToDo</button><button class="dt-btn${isGoals?' on':''}" onclick="settingsDT='goals';editDT=null;render()">🎯 Goals</button><button class="dt-btn${isWeight?' on':''}" onclick="settingsDT='weight';editDT=null;render()">⚖ 体重</button>`;
+  const dtBtns=Object.entries(D.types).map(([k,v])=>`<button class="dt-btn${settingsDT===k?' on':''}" onclick="settingsDT='${k}';editDT=null;render()">${v.label}</button>`).join('')+`<button class="dt-btn${isCountdown?' on':''}" onclick="settingsDT='countdown';editDT=null;render()">CD</button><button class="dt-btn${isTodo?' on':''}" onclick="settingsDT='todo';editDT=null;render()">ToDo</button><button class="dt-btn${isGoals?' on':''}" onclick="settingsDT='goals';editDT=null;render()">Goals</button><button class="dt-btn${isWeight?' on':''}" onclick="settingsDT='weight';editDT=null;render()">体重</button>`;
 
   let h=`<div class="${pgCls()}"><div style="padding-top:8px"></div><div class="dt-row" style="margin-bottom:12px">${dtBtns}</div>`;
 
