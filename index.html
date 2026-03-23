@@ -511,39 +511,58 @@ function initTodoDrag(dk){
 }
 
 // Swipe to reveal edit/delete for todo items
+// Direction lock: first significant move decides vertical(scroll) or horizontal(swipe)
 function initTodoSwipe(){
   document.querySelectorAll('.todo-swipe').forEach(el=>{
     const inner=el.querySelector('.todo-swipe-inner');
     if(!inner)return;
-    let startX=0,currentX=0,swiping=false;
+    let startX=0,startY=0,currentX=0,direction=null;
+    const THRESHOLD=8; // px to decide direction
+
     inner.addEventListener('touchstart',function(e){
       if(e.target.closest('.drag-grip'))return;
-      startX=e.touches[0].clientX;currentX=0;swiping=true;
+      startX=e.touches[0].clientX;
+      startY=e.touches[0].clientY;
+      currentX=0;direction=null;
       inner.style.transition='none';
     },{passive:true});
+
     inner.addEventListener('touchmove',function(e){
-      if(!swiping)return;
-      currentX=e.touches[0].clientX-startX;
+      if(direction==='vertical')return; // let scroll happen
+      const dx=e.touches[0].clientX-startX;
+      const dy=e.touches[0].clientY-startY;
+
+      if(!direction){
+        if(Math.abs(dx)>THRESHOLD||Math.abs(dy)>THRESHOLD){
+          direction=Math.abs(dx)>Math.abs(dy)?'horizontal':'vertical';
+        }
+        if(direction!=='horizontal')return;
+      }
+
+      // Horizontal swipe - prevent scroll
+      e.preventDefault();
+      currentX=dx;
       const clamp=Math.max(-60,Math.min(60,currentX));
       inner.style.transform=`translateX(${clamp}px)`;
-    },{passive:true});
+    },{passive:false});
+
     inner.addEventListener('touchend',function(){
-      if(!swiping)return;
-      swiping=false;
+      if(direction!=='horizontal'){
+        inner.style.transform='';direction=null;return;
+      }
       inner.style.transition='transform 0.2s ease';
       const dk=el.dataset.dk;
       const id=el.dataset.id;
       if(currentX<-40){
-        // Left swipe → delete
         inner.style.transform='translateX(-100%)';
         setTimeout(()=>delTodo(dk,id),200);
       } else if(currentX>40){
-        // Right swipe → edit
         inner.style.transform='translateX(0)';
         setTimeout(()=>editTodo(dk,id),100);
       } else {
         inner.style.transform='translateX(0)';
       }
+      direction=null;
     });
   });
 }
