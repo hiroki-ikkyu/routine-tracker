@@ -84,7 +84,7 @@ input,select{font-family:inherit}
 .m-bar-bg{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
 .m-bar-fill{height:100%;border-radius:4px;transition:width 0.5s}
 .m-pct{font-size:12px;font-weight:700;width:40px;text-align:right}
-.edit-btn{font-size:13px;font-weight:600;color:var(--blue);padding:4px 8px}
+.edit-btn{font-size:13px;font-weight:600;color:var(--text3);padding:4px 8px}
 .edit-row{display:flex;align-items:center;gap:6px;padding:10px 16px;border-bottom:0.5px solid var(--border)}
 .edit-row:last-child{border-bottom:none}
 .edit-row input{border:none;outline:none;font-size:14px;background:transparent;color:var(--text)}
@@ -577,7 +577,45 @@ function editTodo(dk,id){
 
 // Also init swipe on Settings page
 const _origRSettings=rSettings;
-rSettings=function(){_origRSettings();initTodoSwipe();};
+rSettings=function(){_origRSettings();initTodoSwipe();initSettingsTodoDrag();};
+
+function initSettingsTodoDrag(){
+  const list=$('settingsTodoList');if(!list)return;
+  const dk=todayKey();
+  let dragEl=null;
+  const rows=()=>list.querySelectorAll('.settings-todo-row');
+
+  list.addEventListener('touchstart',function(e){
+    const grip=e.target.closest('.drag-grip');if(!grip)return;
+    dragEl=grip.closest('.settings-todo-row');if(!dragEl)return;
+    dragEl.style.opacity='0.5';dragEl.style.background='rgba(0,0,0,0.04)';
+    e.preventDefault();
+  },{passive:false});
+
+  list.addEventListener('touchmove',function(e){
+    if(!dragEl)return;
+    e.preventDefault();
+    const y=e.touches[0].clientY;
+    for(const item of rows()){
+      if(item===dragEl)continue;
+      const rect=item.getBoundingClientRect();
+      const mid=rect.top+rect.height/2;
+      if(y<mid&&item.compareDocumentPosition(dragEl)&Node.DOCUMENT_POSITION_FOLLOWING){list.insertBefore(dragEl,item);break;}
+      if(y>mid&&item.compareDocumentPosition(dragEl)&Node.DOCUMENT_POSITION_PRECEDING){list.insertBefore(dragEl,item.nextSibling);break;}
+    }
+  },{passive:false});
+
+  list.addEventListener('touchend',function(){
+    if(!dragEl)return;
+    dragEl.style.opacity='';dragEl.style.background='';
+    const newOrder=[...rows()].map(r=>r.dataset.id);
+    const todos=D.todos[dk]||[];
+    const reordered=newOrder.map(id=>todos.find(t=>t.id===id)).filter(Boolean);
+    const missing=todos.filter(t=>!newOrder.includes(t.id));
+    D.todos[dk]=[...reordered,...missing];
+    save();dragEl=null;render(true);
+  });
+}
 function pickDate(y,m,d){selDate=new Date(y,m,d);aDT=null;render()}
 
 // ④ FIX: toggle preserves scroll
@@ -663,12 +701,13 @@ function rSettings(){
     const pending=todos.filter(t=>!t.done);
     const done=todos.filter(t=>t.done);
     const allTodos=[...pending,...done];
-    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">✓ To do ${allTodos.length?`<span style="font-size:12px;font-weight:400;color:var(--text3)">${allTodos.length}件</span>`:''}</div><button onclick="var v=prompt('タスクを入力');if(v&&v.trim())addTodo('${dk}',v.trim())" style="font-size:13px;font-weight:600;color:var(--blue);padding:4px 8px">＋ 追加</button></div>`;
-    h+=`<div class="routine-card" style="margin-bottom:20px">${allTodos.length?allTodos.map(t=>{
-      return`<div class="todo-swipe" data-id="${t.id}" data-dk="${dk}">
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">✓ To do ${allTodos.length?`<span style="font-size:12px;font-weight:400;color:var(--text3)">${allTodos.length}件</span>`:''}</div><button onclick="var v=prompt('タスクを入力');if(v&&v.trim())addTodo('${dk}',v.trim())" style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 8px">＋ 追加</button></div>`;
+    h+=`<div id="settingsTodoList" class="routine-card" style="margin-bottom:20px">${allTodos.length?allTodos.map((t,idx)=>{
+      return`<div class="todo-swipe settings-todo-row" data-id="${t.id}" data-dk="${dk}" data-idx="${idx}">
         <div class="todo-swipe-bg left">編集</div>
         <div class="todo-swipe-bg right">削除</div>
         <div class="todo-swipe-inner" style="gap:10px;padding:9px 14px">
+        <span class="drag-grip" style="cursor:grab;color:var(--text3);font-size:14px;padding:0 4px;touch-action:none">⠿</span>
         <button onclick="toggleTodo('${dk}','${t.id}');render(true)" style="width:22px;height:22px;border-radius:11px;border:2px solid ${t.done?'var(--green)':'var(--border)'};background:${t.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
           ${t.done?'<svg width="12" height="12" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
         </button>
@@ -676,8 +715,8 @@ function rSettings(){
         </div>
       </div>`}).join(''):'<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">タスクなし</div>'}</div>`;
   } else if(isCountdown){
-    const evHtml=D.events.length?D.events.sort((a,b)=>a.date.localeCompare(b.date)).map((e,i)=>{const days=daysUntil(e.date);const past=days<0;return`<div class="edit-row" style="gap:8px"><input type="date" value="${e.date}" onchange="evDate(${i},this.value)" style="border:none;background:var(--bg);border-radius:6px;padding:4px 6px;font-size:12px;font-family:inherit;color:var(--text);width:130px"/><input style="flex:1;font-size:14px" value="${e.label}" onblur="evLabel(${i},this.value)"/><span style="font-size:11px;font-weight:700;color:${past?'var(--text3)':days<=7?'var(--red)':days<=30?'var(--orange)':'var(--text)'};white-space:nowrap;min-width:32px;text-align:right">${past?'済':days+'日'}</span><button class="del" onclick="evDel(${i})">×</button></div>`}).join(''):'<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">イベントなし</div>';
-    h+=`<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px;padding:0 2px">📅 カウントダウン</div><div class="routine-card" style="margin-bottom:20px">${evHtml}<button class="add-btn" onclick="evAdd()">＋ イベントを追加</button></div>`;
+    const evHtml=D.events.length?D.events.sort((a,b)=>a.date.localeCompare(b.date)).map((e,i)=>{const days=daysUntil(e.date);const past=days<0;return`<div class="edit-row" style="gap:8px"><input type="date" value="${e.date}" onchange="evDate(${i},this.value)" style="border:none;background:var(--bg);border-radius:6px;padding:4px 6px;font-size:12px;font-family:inherit;color:var(--text);width:130px"/><input style="flex:1;font-size:14px" value="${e.label}" onblur="evLabel(${i},this.value)"/><span style="font-size:11px;font-weight:700;color:${past?'var(--text3)':days<=7?'var(--red)':days<=30?'var(--orange)':'var(--text)'};white-space:nowrap;min-width:32px;text-align:right">${past?'済':days+'日'}</span><button class="del" onclick="if(confirm('「${e.label}」を削除しますか？'))evDel(${i})">×</button></div>`}).join(''):'<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">イベントなし</div>';
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">📅 カウントダウン</div><button onclick="evAdd()" style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 8px">＋ 追加</button></div><div class="routine-card" style="margin-bottom:20px">${evHtml}</div>`;
   } else {
     const dt=D.types[settingsDT];
     const isEditing=editDT===settingsDT;
@@ -685,22 +724,21 @@ function rSettings(){
     if(isEditing){
       dt.routines.forEach((r,i)=>{
         const hasSub=r.children&&r.children.length;
-        editHtml+=`<div class="edit-row"><input inputmode="numeric" pattern="[0-9]*" value="${r.time}" placeholder="630" onfocus="this.select()" onblur="eTimeNum('${settingsDT}',${i},this.value)" onkeydown="if(event.key==='Enter'){this.blur()}" style="border:none;background:var(--bg);border-radius:6px;padding:5px 6px;font-size:14px;font-weight:700;font-family:inherit;color:var(--text);width:60px;flex-shrink:0;text-align:center"/><input style="flex:1;font-size:14px" value="${r.task}" onblur="eTask('${settingsDT}',${i},this.value)"/><button onclick="addChild('${settingsDT}',${i})" style="font-size:11px;color:var(--blue);padding:2px 4px;flex-shrink:0">+子</button><button class="del" onclick="delR('${settingsDT}',${i})">×</button></div>`;
+        editHtml+=`<div class="edit-row"><input inputmode="numeric" pattern="[0-9]*" value="${r.time}" placeholder="630" onfocus="this.select()" onblur="eTimeNum('${settingsDT}',${i},this.value)" onkeydown="if(event.key==='Enter'){this.blur()}" style="border:none;background:var(--bg);border-radius:6px;padding:5px 6px;font-size:14px;font-weight:700;font-family:inherit;color:var(--text);width:60px;flex-shrink:0;text-align:center"/><input style="flex:1;font-size:14px" value="${r.task}" placeholder="ルーティン名" onblur="eTask('${settingsDT}',${i},this.value)"/><button onclick="addChild('${settingsDT}',${i})" style="font-size:11px;color:var(--text3);padding:2px 4px;flex-shrink:0">＋</button><button class="del" onclick="delR('${settingsDT}',${i})">×</button></div>`;
         if(hasSub){
           r.children.forEach((c,ci)=>{
-            editHtml+=`<div class="edit-row" style="padding-left:40px;background:var(--bg)"><input style="flex:1;font-size:13px" value="${c.task}" onblur="eChildTask('${settingsDT}',${i},${ci},this.value)"/><button class="del" onclick="delChild('${settingsDT}',${i},${ci})">×</button></div>`;
+            editHtml+=`<div class="edit-row" style="padding-left:40px;background:var(--bg)"><input style="flex:1;font-size:13px" value="${c.task}" placeholder="サブタスク" onblur="eChildTask('${settingsDT}',${i},${ci},this.value)"/><button class="del" onclick="delChild('${settingsDT}',${i},${ci})">×</button></div>`;
           });
         }
       });
-      editHtml+=`<button class="add-btn" onclick="addR('${settingsDT}')">＋ ルーティンを追加</button>`;
     }
     let viewHtml='';
     if(!isEditing){
       dt.routines.forEach(r=>{
-        viewHtml+=`<div class="routine-item"><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span>${r.children&&r.children.length?`<span style="font-size:10px;color:var(--text3)">${r.children.length}子</span>`:''}</div>`;
+        viewHtml+=`<div class="routine-item"><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span>${r.children&&r.children.length?`<span style="font-size:10px;color:var(--text3)">${r.children.length}</span>`:''}</div>`;
       });
     }
-    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">${dt.icon} ${dt.label}のルーティン</div><button class="edit-btn" onclick="editDT=${isEditing?'null':`'${settingsDT}'`};render(true)">${isEditing?'完了':'編集'}</button></div><div class="routine-card" style="margin-bottom:20px">${isEditing?editHtml:viewHtml}</div>`;
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">${dt.icon} ${dt.label}のルーティン</div><div style="display:flex;align-items:center;gap:8px">${isEditing?`<button onclick="addR('${settingsDT}')" style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 0">＋ 追加</button>`:''}<button style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 8px" onclick="editDT=${isEditing?'null':`'${settingsDT}'`};render(true)">${isEditing?'完了':'編集'}</button></div></div><div class="routine-card" style="margin-bottom:20px">${isEditing?editHtml:viewHtml}</div>`;
   }
 
   
@@ -722,11 +760,11 @@ function eTimeNum(k,i,v){
 }
 function eTask(k,i,v){if(v.trim()){D.types[k].routines[i].task=v.trim();save();render(true)}}
 function delR(k,i){D.types[k].routines.splice(i,1);save();render(true)}
-function addR(k){D.types[k].routines.push({id:'c'+Date.now(),time:'12:00',task:'新しいルーティン'});sortR(k);save();render(true)}
+function addR(k){D.types[k].routines.push({id:'c'+Date.now(),time:'0:00',task:''});sortR(k);save();render(true)}
 function sortR(k){D.types[k].routines.sort((a,b)=>timeToMin(a.time)-timeToMin(b.time))}
 
 // Child task CRUD
-function addChild(k,i){if(!D.types[k].routines[i].children)D.types[k].routines[i].children=[];D.types[k].routines[i].children.push({id:'ch'+Date.now(),task:'サブタスク'});save();render(true)}
+function addChild(k,i){if(!D.types[k].routines[i].children)D.types[k].routines[i].children=[];D.types[k].routines[i].children.push({id:'ch'+Date.now(),task:''});save();render(true)}
 function eChildTask(k,i,ci,v){if(v.trim()){D.types[k].routines[i].children[ci].task=v.trim();save();render(true)}}
 function delChild(k,i,ci){D.types[k].routines[i].children.splice(ci,1);save();render(true)}
 
