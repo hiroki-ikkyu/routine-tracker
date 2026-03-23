@@ -751,9 +751,6 @@ function rReview(){
     <div style="padding-top:8px"></div>
     ${weightHtml}
     ${journalReviewHtml}
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-val" style="color:${avg30>=70?'var(--green)':avg30>=40?'var(--orange)':'var(--red)'}">${avg30}%</div><div class="stat-label">30日平均</div></div>
-    </div>
     <div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:14px">Weekly</div>
       <div class="chart-bars">${last7.map(s=>{const c=s.pct>=80?'var(--green)':s.pct>=50?'var(--orange)':s.pct>0?'#d1d1d6':'#efefef';const dw=['日','月','火','水','木','金','土'][s.date.getDay()];return`<div class="chart-col"><div style="font-size:10px;font-weight:700;color:${s.pct>=50?'var(--text)':'var(--text3)'}">${s.pct>0?s.pct+'%':''}</div><div class="chart-bar" style="height:${Math.max(3,s.pct*0.8)}px;background:${c}"></div><div class="chart-lbl">${dw}</div></div>`}).join('')}</div>
     </div>
