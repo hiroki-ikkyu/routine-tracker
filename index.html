@@ -213,14 +213,17 @@ function getTodos(dateKey){
   if(!D.todos[dateKey])D.todos[dateKey]=[];
   const existing=D.todos[dateKey];
   const dismissed=(D.todoDismissed&&D.todoDismissed[dateKey])||[];
+  const existingTexts=new Set(existing.map(e=>e.text));
   // Check previous day for uncompleted tasks to carry forward
   const prev=new Date(parseKey(dateKey));prev.setDate(prev.getDate()-1);
   const prevKey=toKey(prev);
   const prevTodos=D.todos[prevKey]||[];
   let added=false;
   prevTodos.forEach(t=>{
-    if(!t.done && !dismissed.includes(t.id) && !existing.some(e=>e.fromId===t.id||e.id===t.id)){
-      existing.push({id:'cf_'+t.id+'_'+dateKey,text:t.text,done:false,fromId:t.id});
+    const origId=t.origId||t.id;
+    if(!t.done && !dismissed.includes(origId) && !existing.some(e=>(e.origId||e.id)===origId) && !existingTexts.has(t.text)){
+      existing.push({id:'cf_'+origId+'_'+dateKey,text:t.text,done:false,fromId:t.id,origId:origId});
+      existingTexts.add(t.text);
       added=true;
     }
   });
@@ -414,7 +417,7 @@ function rToday(){
         const allDone=childDone===r.children.length;
         const isOpen=expandedGroups.has(r.id);
         const circleInner=allDone?'<svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<span style="font-size:10px;color:var(--text3)">'+childDone+'/'+r.children.length+'</span>';
-        h+=`<button class="routine-item${allDone?' done':''}" onclick="expandedGroups.has('${r.id}')?expandedGroups.delete('${r.id}'):expandedGroups.add('${r.id}');render(true)" style="position:relative">
+        h+=`<button class="routine-item${allDone?' done':''}" onclick="var rs=document.getElementById('routineScroll');if(rs)_rScroll=rs.scrollTop;expandedGroups.has('${r.id}')?expandedGroups.delete('${r.id}'):expandedGroups.add('${r.id}');render(true)" style="position:relative">
           <div style="width:20px;height:20px;border-radius:10px;border:2px solid ${allDone?'var(--green)':'var(--border)'};background:${allDone?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
             ${circleInner}
           </div>
@@ -736,7 +739,17 @@ function rSettings(){
     let viewHtml='';
     if(!isEditing){
       dt.routines.forEach(r=>{
-        viewHtml+=`<div class="routine-item"><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span>${r.children&&r.children.length?`<span style="font-size:10px;color:var(--text3)">${r.children.length}</span>`:''}</div>`;
+        if(r.children&&r.children.length){
+          const isOpen=expandedGroups.has(r.id);
+          viewHtml+=`<div class="routine-item" onclick="expandedGroups.has('${r.id}')?expandedGroups.delete('${r.id}'):expandedGroups.add('${r.id}');render(true)" style="cursor:pointer"><span class="r-time">${r.time}</span><span class="r-label" style="flex:1">${r.task}</span><span style="font-size:10px;color:var(--text3);margin-right:4px">${r.children.length}</span><span style="font-size:10px;color:var(--text3);transform:rotate(${isOpen?'180':'0'}deg);transition:transform 0.2s;display:inline-block">▼</span></div>`;
+          if(isOpen){
+            r.children.forEach(c=>{
+              viewHtml+=`<div class="routine-item" style="padding-left:52px"><span class="r-label" style="font-size:13px">・${c.task}</span></div>`;
+            });
+          }
+        } else {
+          viewHtml+=`<div class="routine-item"><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span></div>`;
+        }
       });
     }
     h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">${dt.icon} ${dt.label}のルーティン</div><div style="display:flex;align-items:center;gap:8px">${isEditing?`<button onclick="addR('${settingsDT}')" style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 0">＋ 追加</button>`:''}<button style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 8px" onclick="editDT=${isEditing?'null':`'${settingsDT}'`};render(true)">${isEditing?'完了':'編集'}</button></div></div><div class="routine-card" style="margin-bottom:20px">${isEditing?editHtml:viewHtml}</div>`;
@@ -775,6 +788,16 @@ function evLabel(i,v){if(v.trim()){D.events[i].label=v.trim();save();render(true
 function evDel(i){D.events.splice(i,1);save();render(true)}
 function evAdd(){const d=new Date();d.setDate(d.getDate()+30);D.events.push({id:'ev'+Date.now(),date:toKey(d),label:'新しいイベント'});save();render(true)}
 
+// Cleanup: remove duplicate todos (same text in same day)
+Object.keys(D.todos).forEach(dk=>{
+  const seen=new Set();
+  D.todos[dk]=D.todos[dk].filter(t=>{
+    const key=t.text+'|'+!!t.done;
+    if(seen.has(t.text)&&!t.done)return false;
+    seen.add(t.text);return true;
+  });
+});
+save();
 render();
 </script>
 </body>
