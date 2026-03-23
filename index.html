@@ -372,16 +372,11 @@ function rToday(){
         <div class="scroll-fade-top"></div>
         <div class="scroll-fade-bot${sortedTodos.length>4?' show':''}"></div>
         <div id="todoList" class="scroll-area scroll-watch" style="flex:1;max-height:${sortedTodos.length>4?'105px':'none'}">
-          ${sortedTodos.length?sortedTodos.map((t,idx)=>`<div class="todo-swipe todo-row" data-idx="${idx}" data-id="${t.id}" data-dk="${dk}">
-            <div class="todo-swipe-bg left">編集</div>
-            <div class="todo-swipe-bg right">削除</div>
-            <div class="todo-swipe-inner">
-            <span class="drag-grip" style="cursor:grab;color:var(--text3);font-size:10px;padding:0 2px;touch-action:none">⠿</span>
+          ${sortedTodos.length?sortedTodos.map((t,idx)=>`<div style="display:flex;align-items:center;gap:5px;padding:2px 0">
             <button onclick="toggleTodo('${dk}','${t.id}')" style="width:16px;height:16px;border-radius:8px;border:1.5px solid ${t.done?'var(--green)':'var(--border)'};background:${t.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
               ${t.done?'<svg width="8" height="8" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>':''}
             </button>
             <div style="font-size:11px;flex:1;color:${t.done?'var(--text3)':'var(--text)'};${t.done?'text-decoration:line-through;':''}white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.text}</div>
-            </div>
           </div>`).join(''):'<div style="font-size:11px;color:var(--text3);padding:2px 0">タスクなし</div>'}
         </div>
         </div>
@@ -444,8 +439,6 @@ function rToday(){
 
   h+='</div></div>';$('app').innerHTML=h;
   if(_noAnim&&_rScroll>0){const rs=$('routineScroll');if(rs)rs.scrollTop=_rScroll;}
-  initTodoDrag(dk);
-  initTodoSwipe();
   initScrollFade();
 }
 
@@ -579,9 +572,15 @@ function editTodo(dk,id){
   if(v&&v.trim()){t.text=v.trim();save();render(true);}
 }
 
+function editTodoText(dk,id,v){
+  const todos=D.todos[dk]||[];
+  const t=todos.find(x=>x.id===id);
+  if(t&&v.trim()){t.text=v.trim();save();}
+}
+
 // Also init swipe on Settings page
 const _origRSettings=rSettings;
-rSettings=function(){_origRSettings();initTodoSwipe();initSettingsTodoDrag();};
+rSettings=function(){_origRSettings();initSettingsTodoDrag();};
 
 function initSettingsTodoDrag(){
   const list=$('settingsTodoList');if(!list)return;
@@ -705,18 +704,16 @@ function rSettings(){
     const pending=todos.filter(t=>!t.done);
     const done=todos.filter(t=>t.done);
     const allTodos=[...pending,...done];
-    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">✓ To do ${allTodos.length?`<span style="font-size:12px;font-weight:400;color:var(--text3)">${allTodos.length}件</span>`:''}</div><button onclick="var v=prompt('タスクを入力');if(v&&v.trim())addTodo('${dk}',v.trim())" style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 8px">＋ 追加</button></div>`;
+    const isTodoEdit=editDT==='todo';
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">✓ To do ${allTodos.length?`<span style="font-size:12px;font-weight:400;color:var(--text3)">${allTodos.length}件</span>`:''}</div><div style="display:flex;align-items:center;gap:8px"><button onclick="var v=prompt('タスクを入力');if(v&&v.trim())addTodo('${dk}',v.trim())" style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 0">＋ 追加</button><button onclick="editDT=${isTodoEdit?'null':"'todo'"};render(true)" style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 8px">${isTodoEdit?'完了':'編集'}</button></div></div>`;
     h+=`<div id="settingsTodoList" class="routine-card" style="margin-bottom:20px">${allTodos.length?allTodos.map((t,idx)=>{
-      return`<div class="todo-swipe settings-todo-row" data-id="${t.id}" data-dk="${dk}" data-idx="${idx}">
-        <div class="todo-swipe-bg left">編集</div>
-        <div class="todo-swipe-bg right">削除</div>
-        <div class="todo-swipe-inner" style="gap:10px;padding:9px 14px">
-        <span class="drag-grip" style="cursor:grab;color:var(--text3);font-size:14px;padding:0 4px;touch-action:none">⠿</span>
+      return`<div class="routine-item settings-todo-row${t.done?' done':''}" data-id="${t.id}" data-dk="${dk}" data-idx="${idx}" style="gap:10px">
+        ${isTodoEdit?'<span class="drag-grip" style="cursor:grab;color:var(--text3);font-size:14px;padding:0 4px;touch-action:none">⠿</span>':''}
         <button onclick="toggleTodo('${dk}','${t.id}');render(true)" style="width:22px;height:22px;border-radius:11px;border:2px solid ${t.done?'var(--green)':'var(--border)'};background:${t.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
           ${t.done?'<svg width="12" height="12" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
         </button>
-        <span style="font-size:15px;flex:1;color:${t.done?'var(--text3)':'var(--text)'};${t.done?'text-decoration:line-through;':''}">${t.text}</span>
-        </div>
+        ${isTodoEdit?`<input style="flex:1;font-size:15px;border:none;outline:none;background:transparent;color:${t.done?'var(--text3)':'var(--text)'};font-family:inherit;${t.done?'text-decoration:line-through;':''}" value="${t.text}" onblur="editTodoText('${dk}','${t.id}',this.value)"/>`:`<span style="font-size:15px;flex:1;color:${t.done?'var(--text3)':'var(--text)'};${t.done?'text-decoration:line-through;':''}">${t.text}</span>`}
+        ${isTodoEdit?`<button onclick="if(confirm('「${t.text}」を削除しますか？'))delTodo('${dk}','${t.id}')" class="del">×</button>`:''}
       </div>`}).join(''):'<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">タスクなし</div>'}</div>`;
   } else if(isCountdown){
     const evHtml=D.events.length?D.events.sort((a,b)=>a.date.localeCompare(b.date)).map((e,i)=>{const days=daysUntil(e.date);const past=days<0;return`<div class="edit-row" style="gap:8px"><input type="date" value="${e.date}" onchange="evDate(${i},this.value)" style="border:none;background:var(--bg);border-radius:6px;padding:4px 6px;font-size:12px;font-family:inherit;color:var(--text);width:130px"/><input style="flex:1;font-size:14px" value="${e.label}" onblur="evLabel(${i},this.value)"/><span style="font-size:11px;font-weight:700;color:${past?'var(--text3)':days<=7?'var(--red)':days<=30?'var(--orange)':'var(--text)'};white-space:nowrap;min-width:32px;text-align:right">${past?'済':days+'日'}</span><button class="del" onclick="if(confirm('「${e.label}」を削除しますか？'))evDel(${i})">×</button></div>`}).join(''):'<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">イベントなし</div>';
