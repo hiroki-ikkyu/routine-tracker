@@ -413,9 +413,10 @@ function rToday(){
         const childDone=r.children.filter(c=>done.includes(c.id)).length;
         const allDone=childDone===r.children.length;
         const isOpen=expandedGroups.has(r.id);
+        const circleInner=allDone?'<svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<span style="font-size:10px;color:var(--text3)">'+childDone+'/'+r.children.length+'</span>';
         h+=`<button class="routine-item${allDone?' done':''}" onclick="expandedGroups.has('${r.id}')?expandedGroups.delete('${r.id}'):expandedGroups.add('${r.id}');render(true)" style="position:relative">
-          <div style="width:24px;height:24px;border-radius:12px;border:2px solid ${allDone?'var(--green)':'var(--border)'};background:${allDone?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            ${allDone?'<svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<span style="font-size:10px;color:var(--text3)">${childDone}/${r.children.length}</span>'}
+          <div style="width:20px;height:20px;border-radius:10px;border:2px solid ${allDone?'var(--green)':'var(--border)'};background:${allDone?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            ${circleInner}
           </div>
           <span class="r-time">${r.time}</span>
           <span class="r-label" style="flex:1">${r.task}</span>
