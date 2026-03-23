@@ -53,14 +53,14 @@ input,select{font-family:inherit}
 .time-block-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text2)}
 .time-block-line{flex:1;height:1px;background:var(--border)}
 .routine-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-.routine-item{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:0.5px solid var(--border);transition:background 0.15s;width:100%;text-align:left}
+.routine-item{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:0.5px solid var(--border);transition:background 0.15s;width:100%;text-align:left}
 .routine-item:last-child{border-bottom:none}
 .routine-item.done{background:rgba(52,199,89,0.08)}
-.r-check{width:24px;height:24px;border-radius:12px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;transition:all 0.3s;flex-shrink:0}
+.r-check{width:20px;height:20px;border-radius:10px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;transition:all 0.3s;flex-shrink:0}
 .r-check.done{border-color:var(--green);background:var(--green)}
 .r-check svg{opacity:0;transition:opacity 0.2s}.r-check.done svg{opacity:1}
-.r-time{font-size:13px;font-weight:700;color:var(--accent);width:44px;flex-shrink:0;font-variant-numeric:tabular-nums}
-.r-label{font-size:15px;color:var(--text);font-weight:400;flex:1;transition:all 0.2s}
+.r-time{font-size:12px;font-weight:700;color:var(--accent);width:36px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.r-label{font-size:14px;color:var(--text);font-weight:400;flex:1;transition:all 0.2s}
 .routine-item.done .r-label{color:var(--text3);text-decoration:line-through;text-decoration-color:var(--text3)}
 .routine-item.done .r-time{color:var(--text3)}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
@@ -101,8 +101,16 @@ input,select{font-family:inherit}
 .scroll-area::-webkit-scrollbar-track{background:var(--border);border-radius:4px}
 .scroll-area::-webkit-scrollbar-thumb{background:var(--text3);border-radius:4px;min-height:20px;min-width:20px}
 .scroll-wrap{position:relative}
-.scroll-wrap.has-more::after{content:'';position:absolute;bottom:0;left:0;right:0;height:24px;background:linear-gradient(transparent,rgba(255,255,255,0.95));pointer-events:none;border-radius:0 0 12px 12px}
+.scroll-fade-top,.scroll-fade-bot{position:absolute;left:0;right:0;height:20px;pointer-events:none;border-radius:12px;opacity:0;transition:opacity 0.2s}
+.scroll-fade-top{top:0;background:linear-gradient(rgba(255,255,255,0.95),transparent)}
+.scroll-fade-bot{bottom:0;background:linear-gradient(transparent,rgba(255,255,255,0.95))}
+.scroll-fade-top.show,.scroll-fade-bot.show{opacity:1}
 .more-badge{font-size:8px;font-weight:700;color:var(--text3);text-align:center;padding:2px 0}
+.todo-swipe{position:relative;overflow:hidden}
+.todo-swipe-inner{display:flex;align-items:center;gap:5px;padding:2px 0;transition:transform 0.2s ease;position:relative;background:var(--card);z-index:1}
+.todo-swipe-bg{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;width:60px;font-size:10px;font-weight:600;color:#fff}
+.todo-swipe-bg.left{left:0;background:var(--blue);border-radius:4px 0 0 4px}
+.todo-swipe-bg.right{right:0;background:var(--red);border-radius:0 4px 4px 0}
 </style>
 </head>
 <body>
@@ -188,7 +196,8 @@ function load(){try{const r=localStorage.getItem(SK);if(r){const d=JSON.parse(r)
 function save(){localStorage.setItem(SK,JSON.stringify(D))}
 function autoType(date){const w=date.getDay();return(w===0||w===6)?'weekend':'office'}
 function getRec(k){return D.records[k]||{type:null,done:[]}}
-function getPct(k){const r=getRec(k),t=r.type||autoType(parseKey(k)),rt=D.types[t]?.routines||[];if(!rt.length)return 0;return Math.round(r.done.filter(id=>rt.some(x=>x.id===id)).length/rt.length*100)}
+function getAllTaskIds(routines){const ids=[];routines.forEach(r=>{if(r.children&&r.children.length){r.children.forEach(c=>ids.push(c.id))}else{ids.push(r.id)}});return ids}
+function getPct(k){const r=getRec(k),t=r.type||autoType(parseKey(k)),rt=D.types[t]?.routines||[];const all=getAllTaskIds(rt);if(!all.length)return 0;return Math.round(r.done.filter(id=>all.includes(id)).length/all.length*100)}
 function getStreak(){let s=0,d=new Date();while(true){if(getPct(toKey(d))>=50){s++;d.setDate(d.getDate()-1)}else break}return s}
 
 function daysUntil(dateStr){const t=parseKey(dateStr),now=new Date();now.setHours(0,0,0,0);t.setHours(0,0,0,0);return Math.ceil((t-now)/(86400000))}
@@ -265,6 +274,7 @@ if(!Object.keys(D.weight).length){
 
 let tab='today',selDate=new Date(),wOff=0,aDT=null,editDT=null,settingsDT=null,calOpen=false,wChartRange='month';
 let calM=new Date().getMonth(),calY=new Date().getFullYear();
+let expandedGroups=new Set();
 const $=id=>document.getElementById(id);
 const DOW=['月','火','水','木','金','土','日'];
 
@@ -287,8 +297,9 @@ function rToday(){
   const today=new Date(),dk=toKey(selDate),rec=getRec(dk);
   const dt=aDT||rec.type||autoType(selDate);
   const routines=D.types[dt].routines,done=rec.done||[];
-  const doneN=done.filter(id=>routines.some(r=>r.id===id)).length;
-  const pct=routines.length?Math.round(doneN/routines.length*100):0;
+  const allIds=getAllTaskIds(routines);
+  const doneN=done.filter(id=>allIds.includes(id)).length;
+  const pct=allIds.length?Math.round(doneN/allIds.length*100):0;
   const streak=getStreak(),wd=weekDates(),cw=wOff===0;
 
   const grouped={};BLOCKS.forEach(b=>grouped[b.id]=[]);
@@ -331,8 +342,10 @@ function rToday(){
       <!-- Left: Countdown -->
       <div style="flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px;min-width:0;display:flex;flex-direction:column">
         <div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:0.5px;margin-bottom:4px">Countdown${upcoming.length?` <span style="font-weight:400;letter-spacing:0">${upcoming.length}件</span>`:''}</div>
-        <div class="scroll-wrap${upcoming.length>5?' has-more':''}">
-        <div class="scroll-area" style="flex:1;max-height:${upcoming.length>5?'110px':'none'}">
+        <div class="scroll-wrap">
+        <div class="scroll-fade-top"></div>
+        <div class="scroll-fade-bot${upcoming.length>5?' show':''}"></div>
+        <div class="scroll-area scroll-watch" style="flex:1;max-height:${upcoming.length>5?'110px':'none'}">
         ${upcoming.length?upcoming.map(e=>{
           const days=daysUntil(e.date);
           const d=parseKey(e.date);
@@ -352,15 +365,20 @@ function rToday(){
           <div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:0.5px">To do${sortedTodos.length?` <span style="font-weight:400;letter-spacing:0">${sortedTodos.length}件</span>`:''}</div>
           <button onclick="var v=prompt('タスクを入力');if(v&&v.trim())addTodo('${dk}',v.trim())" style="font-size:14px;color:var(--text3);padding:0;line-height:1">+</button>
         </div>
-        <div class="scroll-wrap${sortedTodos.length>4?' has-more':''}">
-        <div id="todoList" class="scroll-area" style="flex:1;max-height:${sortedTodos.length>4?'105px':'none'}">
-          ${sortedTodos.length?sortedTodos.map((t,idx)=>`<div class="todo-row" draggable="true" data-idx="${idx}" data-id="${t.id}" style="display:flex;align-items:center;gap:5px;padding:2px 0;cursor:default">
+        <div class="scroll-wrap">
+        <div class="scroll-fade-top"></div>
+        <div class="scroll-fade-bot${sortedTodos.length>4?' show':''}"></div>
+        <div id="todoList" class="scroll-area scroll-watch" style="flex:1;max-height:${sortedTodos.length>4?'105px':'none'}">
+          ${sortedTodos.length?sortedTodos.map((t,idx)=>`<div class="todo-swipe todo-row" data-idx="${idx}" data-id="${t.id}" data-dk="${dk}">
+            <div class="todo-swipe-bg left">編集</div>
+            <div class="todo-swipe-bg right">削除</div>
+            <div class="todo-swipe-inner">
             <span class="drag-grip" style="cursor:grab;color:var(--text3);font-size:10px;padding:0 2px;touch-action:none">⠿</span>
             <button onclick="toggleTodo('${dk}','${t.id}')" style="width:16px;height:16px;border-radius:8px;border:1.5px solid ${t.done?'var(--green)':'var(--border)'};background:${t.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
               ${t.done?'<svg width="8" height="8" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>':''}
             </button>
             <div style="font-size:11px;flex:1;color:${t.done?'var(--text3)':'var(--text)'};${t.done?'text-decoration:line-through;':''}white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.text}</div>
-            <button onclick="delTodo('${dk}','${t.id}')" style="font-size:12px;color:var(--text3);padding:0 2px;flex-shrink:0">×</button>
+            </div>
           </div>`).join(''):'<div style="font-size:11px;color:var(--text3);padding:2px 0">タスクなし</div>'}
         </div>
         </div>
@@ -375,7 +393,7 @@ function rToday(){
   const goalDiff=todayW?Math.round((todayW-D.goalWeight)*10)/10:null;
 
   h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-    <div><span style="font-size:13px;font-weight:600">Progress</span> <span style="font-size:13px;color:var(--text2)">${doneN} of ${routines.length}</span></div>
+    <div><span style="font-size:13px;font-weight:600">Progress</span> <span style="font-size:13px;color:var(--text2)">${doneN} of ${allIds.length}</span></div>
     <div style="display:flex;align-items:center;gap:4px">
       ${dayDiff!==null?`<span style="font-size:9px;font-weight:600;padding:1px 4px;border-radius:4px;${dayDiff<=0?'color:var(--green);background:rgba(52,199,89,0.1)':'color:var(--red);background:rgba(255,59,48,0.1)'}">日${dayDiff>0?'+':''}${dayDiff.toFixed(1)}</span>`:''}
       ${weekDiff!==null?`<span style="font-size:9px;font-weight:600;padding:1px 4px;border-radius:4px;${weekDiff<=0?'color:var(--green);background:rgba(52,199,89,0.1)':'color:var(--red);background:rgba(255,59,48,0.1)'}">週${weekDiff>0?'+':''}${weekDiff.toFixed(1)}</span>`:''}
@@ -389,11 +407,60 @@ function rToday(){
   <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div></div><div id="routineScroll" style="flex:1;overflow-y:auto;padding:0 16px 16px;-webkit-overflow-scrolling:touch">`;
 
   BLOCKS.forEach(b=>{const items=grouped[b.id];if(!items.length)return;
-    h+=`<div class="time-block"><div class="time-block-header"><span class="time-block-label">${b.label}</span><span style="font-size:10px;color:var(--text3);font-weight:500">${b.range}</span><div class="time-block-line"></div></div><div class="routine-card">${items.map(r=>{const d=done.includes(r.id);return`<button class="routine-item${d?' done':''}" onclick="toggle('${dk}','${dt}','${r.id}')"><div class="r-check${d?' done':''}"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span></button>`}).join('')}</div></div>`});
+    h+=`<div class="time-block"><div class="time-block-header"><span class="time-block-label">${b.label}</span><span style="font-size:10px;color:var(--text3);font-weight:500">${b.range}</span><div class="time-block-line"></div></div><div class="routine-card">`;
+    items.forEach(r=>{
+      if(r.children&&r.children.length){
+        const childDone=r.children.filter(c=>done.includes(c.id)).length;
+        const allDone=childDone===r.children.length;
+        const isOpen=expandedGroups.has(r.id);
+        h+=`<button class="routine-item${allDone?' done':''}" onclick="expandedGroups.has('${r.id}')?expandedGroups.delete('${r.id}'):expandedGroups.add('${r.id}');render(true)" style="position:relative">
+          <div style="width:24px;height:24px;border-radius:12px;border:2px solid ${allDone?'var(--green)':'var(--border)'};background:${allDone?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            ${allDone?'<svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<span style="font-size:10px;color:var(--text3)">${childDone}/${r.children.length}</span>'}
+          </div>
+          <span class="r-time">${r.time}</span>
+          <span class="r-label" style="flex:1">${r.task}</span>
+          <span style="font-size:10px;color:var(--text3);transform:rotate(${isOpen?'180':'0'}deg);transition:transform 0.2s">▼</span>
+        </button>`;
+        if(isOpen){
+          r.children.forEach(c=>{
+            const cd=done.includes(c.id);
+            h+=`<button class="routine-item${cd?' done':''}" onclick="toggle('${dk}','${dt}','${c.id}')" style="padding-left:52px">
+              <div class="r-check${cd?' done':''}" style="width:20px;height:20px;border-radius:10px"><svg width="12" height="12" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <span class="r-label" style="font-size:13px">${c.task}</span>
+            </button>`;
+          });
+        }
+      } else {
+        const d=done.includes(r.id);
+        h+=`<button class="routine-item${d?' done':''}" onclick="toggle('${dk}','${dt}','${r.id}')"><div class="r-check${d?' done':''}"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span></button>`;
+      }
+    });
+    h+=`</div></div>`;
+  });
 
   h+='</div></div>';$('app').innerHTML=h;
   if(_noAnim&&_rScroll>0){const rs=$('routineScroll');if(rs)rs.scrollTop=_rScroll;}
   initTodoDrag(dk);
+  initTodoSwipe();
+  initScrollFade();
+}
+
+// Scroll fade indicators - show top/bottom fade based on scroll position
+function initScrollFade(){
+  document.querySelectorAll('.scroll-watch').forEach(el=>{
+    const wrap=el.closest('.scroll-wrap');if(!wrap)return;
+    const fadeTop=wrap.querySelector('.scroll-fade-top');
+    const fadeBot=wrap.querySelector('.scroll-fade-bot');
+    if(!fadeTop||!fadeBot)return;
+    function update(){
+      const canScroll=el.scrollHeight>el.clientHeight+2;
+      if(!canScroll){fadeTop.classList.remove('show');fadeBot.classList.remove('show');return;}
+      fadeTop.classList.toggle('show',el.scrollTop>4);
+      fadeBot.classList.toggle('show',el.scrollTop<el.scrollHeight-el.clientHeight-4);
+    }
+    el.addEventListener('scroll',update,{passive:true});
+    update();
+  });
 }
 
 // Touch drag & drop for todo reordering
@@ -443,7 +510,55 @@ function initTodoDrag(dk){
   });
 }
 
-// ① FIX: date picker uses local date constructor
+// Swipe to reveal edit/delete for todo items
+function initTodoSwipe(){
+  document.querySelectorAll('.todo-swipe').forEach(el=>{
+    const inner=el.querySelector('.todo-swipe-inner');
+    if(!inner)return;
+    let startX=0,currentX=0,swiping=false;
+    inner.addEventListener('touchstart',function(e){
+      if(e.target.closest('.drag-grip'))return;
+      startX=e.touches[0].clientX;currentX=0;swiping=true;
+      inner.style.transition='none';
+    },{passive:true});
+    inner.addEventListener('touchmove',function(e){
+      if(!swiping)return;
+      currentX=e.touches[0].clientX-startX;
+      const clamp=Math.max(-60,Math.min(60,currentX));
+      inner.style.transform=`translateX(${clamp}px)`;
+    },{passive:true});
+    inner.addEventListener('touchend',function(){
+      if(!swiping)return;
+      swiping=false;
+      inner.style.transition='transform 0.2s ease';
+      const dk=el.dataset.dk;
+      const id=el.dataset.id;
+      if(currentX<-40){
+        // Left swipe → delete
+        inner.style.transform='translateX(-100%)';
+        setTimeout(()=>delTodo(dk,id),200);
+      } else if(currentX>40){
+        // Right swipe → edit
+        inner.style.transform='translateX(0)';
+        setTimeout(()=>editTodo(dk,id),100);
+      } else {
+        inner.style.transform='translateX(0)';
+      }
+    });
+  });
+}
+
+function editTodo(dk,id){
+  const todos=D.todos[dk]||[];
+  const t=todos.find(x=>x.id===id);
+  if(!t)return;
+  const v=prompt('タスクを編集',t.text);
+  if(v&&v.trim()){t.text=v.trim();save();render(true);}
+}
+
+// Also init swipe on Settings page
+const _origRSettings=rSettings;
+rSettings=function(){_origRSettings();initTodoSwipe();};
 function pickDate(y,m,d){selDate=new Date(y,m,d);aDT=null;render()}
 
 // ④ FIX: toggle preserves scroll
@@ -531,12 +646,15 @@ function rSettings(){
     const allTodos=[...pending,...done];
     h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">✓ To do ${allTodos.length?`<span style="font-size:12px;font-weight:400;color:var(--text3)">${allTodos.length}件</span>`:''}</div><button onclick="var v=prompt('タスクを入力');if(v&&v.trim())addTodo('${dk}',v.trim())" style="font-size:13px;font-weight:600;color:var(--blue);padding:4px 8px">＋ 追加</button></div>`;
     h+=`<div class="routine-card" style="margin-bottom:20px">${allTodos.length?allTodos.map(t=>{
-      return`<div class="routine-item${t.done?' done':''}" style="gap:10px">
+      return`<div class="todo-swipe" data-id="${t.id}" data-dk="${dk}">
+        <div class="todo-swipe-bg left">編集</div>
+        <div class="todo-swipe-bg right">削除</div>
+        <div class="todo-swipe-inner" style="gap:10px;padding:9px 14px">
         <button onclick="toggleTodo('${dk}','${t.id}');render(true)" style="width:22px;height:22px;border-radius:11px;border:2px solid ${t.done?'var(--green)':'var(--border)'};background:${t.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
           ${t.done?'<svg width="12" height="12" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
         </button>
         <span style="font-size:15px;flex:1;color:${t.done?'var(--text3)':'var(--text)'};${t.done?'text-decoration:line-through;':''}">${t.text}</span>
-        <button onclick="delTodo('${dk}','${t.id}')" class="del">×</button>
+        </div>
       </div>`}).join(''):'<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">タスクなし</div>'}</div>`;
   } else if(isCountdown){
     const evHtml=D.events.length?D.events.sort((a,b)=>a.date.localeCompare(b.date)).map((e,i)=>{const days=daysUntil(e.date);const past=days<0;return`<div class="edit-row" style="gap:8px"><input type="date" value="${e.date}" onchange="evDate(${i},this.value)" style="border:none;background:var(--bg);border-radius:6px;padding:4px 6px;font-size:12px;font-family:inherit;color:var(--text);width:130px"/><input style="flex:1;font-size:14px" value="${e.label}" onblur="evLabel(${i},this.value)"/><span style="font-size:11px;font-weight:700;color:${past?'var(--text3)':days<=7?'var(--red)':days<=30?'var(--orange)':'var(--text)'};white-space:nowrap;min-width:32px;text-align:right">${past?'済':days+'日'}</span><button class="del" onclick="evDel(${i})">×</button></div>`}).join(''):'<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">イベントなし</div>';
@@ -544,8 +662,25 @@ function rSettings(){
   } else {
     const dt=D.types[settingsDT];
     const isEditing=editDT===settingsDT;
-    const editHtml=dt.routines.map((r,i)=>{return`<div class="edit-row"><input inputmode="numeric" pattern="[0-9]*" value="${r.time}" placeholder="630" onfocus="this.select()" onblur="eTimeNum('${settingsDT}',${i},this.value)" onkeydown="if(event.key==='Enter'){this.blur()}" style="border:none;background:var(--bg);border-radius:6px;padding:5px 6px;font-size:14px;font-weight:700;font-family:inherit;color:var(--text);width:60px;flex-shrink:0;text-align:center"/><input style="flex:1;font-size:14px" value="${r.task}" onblur="eTask('${settingsDT}',${i},this.value)"/><button class="del" onclick="delR('${settingsDT}',${i})">×</button></div>`}).join('')+`<button class="add-btn" onclick="addR('${settingsDT}')">＋ ルーティンを追加</button>`;
-    const viewHtml=dt.routines.map(r=>`<div class="routine-item"><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span></div>`).join('');
+    let editHtml='';
+    if(isEditing){
+      dt.routines.forEach((r,i)=>{
+        const hasSub=r.children&&r.children.length;
+        editHtml+=`<div class="edit-row"><input inputmode="numeric" pattern="[0-9]*" value="${r.time}" placeholder="630" onfocus="this.select()" onblur="eTimeNum('${settingsDT}',${i},this.value)" onkeydown="if(event.key==='Enter'){this.blur()}" style="border:none;background:var(--bg);border-radius:6px;padding:5px 6px;font-size:14px;font-weight:700;font-family:inherit;color:var(--text);width:60px;flex-shrink:0;text-align:center"/><input style="flex:1;font-size:14px" value="${r.task}" onblur="eTask('${settingsDT}',${i},this.value)"/><button onclick="addChild('${settingsDT}',${i})" style="font-size:11px;color:var(--blue);padding:2px 4px;flex-shrink:0">+子</button><button class="del" onclick="delR('${settingsDT}',${i})">×</button></div>`;
+        if(hasSub){
+          r.children.forEach((c,ci)=>{
+            editHtml+=`<div class="edit-row" style="padding-left:40px;background:var(--bg)"><input style="flex:1;font-size:13px" value="${c.task}" onblur="eChildTask('${settingsDT}',${i},${ci},this.value)"/><button class="del" onclick="delChild('${settingsDT}',${i},${ci})">×</button></div>`;
+          });
+        }
+      });
+      editHtml+=`<button class="add-btn" onclick="addR('${settingsDT}')">＋ ルーティンを追加</button>`;
+    }
+    let viewHtml='';
+    if(!isEditing){
+      dt.routines.forEach(r=>{
+        viewHtml+=`<div class="routine-item"><span class="r-time">${r.time}</span><span class="r-label">${r.task}</span>${r.children&&r.children.length?`<span style="font-size:10px;color:var(--text3)">${r.children.length}子</span>`:''}</div>`;
+      });
+    }
     h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">${dt.icon} ${dt.label}のルーティン</div><button class="edit-btn" onclick="editDT=${isEditing?'null':`'${settingsDT}'`};render(true)">${isEditing?'完了':'編集'}</button></div><div class="routine-card" style="margin-bottom:20px">${isEditing?editHtml:viewHtml}</div>`;
   }
 
@@ -570,6 +705,11 @@ function eTask(k,i,v){if(v.trim()){D.types[k].routines[i].task=v.trim();save();r
 function delR(k,i){D.types[k].routines.splice(i,1);save();render(true)}
 function addR(k){D.types[k].routines.push({id:'c'+Date.now(),time:'12:00',task:'新しいルーティン'});sortR(k);save();render(true)}
 function sortR(k){D.types[k].routines.sort((a,b)=>timeToMin(a.time)-timeToMin(b.time))}
+
+// Child task CRUD
+function addChild(k,i){if(!D.types[k].routines[i].children)D.types[k].routines[i].children=[];D.types[k].routines[i].children.push({id:'ch'+Date.now(),task:'サブタスク'});save();render(true)}
+function eChildTask(k,i,ci,v){if(v.trim()){D.types[k].routines[i].children[ci].task=v.trim();save();render(true)}}
+function delChild(k,i,ci){D.types[k].routines[i].children.splice(ci,1);save();render(true)}
 
 // Event countdown CRUD
 function evDate(i,v){if(v){D.events[i].date=v;save();render(true)}}
