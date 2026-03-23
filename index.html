@@ -760,14 +760,14 @@ function eTimeNum(k,i,v){
   sortR(k);save();render(true);
 }
 function eTask(k,i,v){if(v.trim()){D.types[k].routines[i].task=v.trim();save();render(true)}}
-function delR(k,i){D.types[k].routines.splice(i,1);save();render(true)}
+function delR(k,i){if(confirm('「'+D.types[k].routines[i].task+'」を削除しますか？')){D.types[k].routines.splice(i,1);save();render(true)}}
 function addR(k){D.types[k].routines.push({id:'c'+Date.now(),time:'0:00',task:''});sortR(k);save();render(true)}
 function sortR(k){D.types[k].routines.sort((a,b)=>timeToMin(a.time)-timeToMin(b.time))}
 
 // Child task CRUD
 function addChild(k,i){if(!D.types[k].routines[i].children)D.types[k].routines[i].children=[];D.types[k].routines[i].children.push({id:'ch'+Date.now(),task:''});save();render(true)}
 function eChildTask(k,i,ci,v){if(v.trim()){D.types[k].routines[i].children[ci].task=v.trim();save();render(true)}}
-function delChild(k,i,ci){D.types[k].routines[i].children.splice(ci,1);save();render(true)}
+function delChild(k,i,ci){if(confirm('削除しますか？')){D.types[k].routines[i].children.splice(ci,1);save();render(true)}}
 
 // Event countdown CRUD
 function evDate(i,v){if(v){D.events[i].date=v;save();render(true)}}
