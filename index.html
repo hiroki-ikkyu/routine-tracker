@@ -195,7 +195,7 @@ const DEFAULT_TYPES={
   ]}
 };
 
-function load(){try{const r=localStorage.getItem(SK);if(r){const d=JSON.parse(r);if(!d.events)d.events=[];if(!d.todos)d.todos={};if(!d.weight)d.weight={};if(!d.goalWeight)d.goalWeight=70;if(!d.todoDismissed)d.todoDismissed={};if(!d.journal)d.journal={};if(!d.customTags)d.customTags=[];return d}}catch(e){}return{types:JSON.parse(JSON.stringify(DEFAULT_TYPES)),records:{},events:[],todos:{},weight:{},goalWeight:70,todoDismissed:{},journal:{},customTags:[]}}
+function load(){try{const r=localStorage.getItem(SK);if(r){const d=JSON.parse(r);if(!d.events)d.events=[];if(!d.todos)d.todos={};if(!d.weight)d.weight={};if(!d.goalWeight)d.goalWeight=70;if(!d.todoDismissed)d.todoDismissed={};if(!d.journal)d.journal={};if(!d.customTags)d.customTags=[];if(!d.goals)d.goals=[];if(!d.goalRecords)d.goalRecords={};return d}}catch(e){}return{types:JSON.parse(JSON.stringify(DEFAULT_TYPES)),records:{},events:[],todos:{},weight:{},goalWeight:70,todoDismissed:{},journal:{},customTags:[],goals:[],goalRecords:{}}}
 function save(){localStorage.setItem(SK,JSON.stringify(D))}
 function autoType(date){const w=date.getDay();return(w===0||w===6)?'weekend':'office'}
 function getRec(k){return D.records[k]||{type:null,done:[]}}
@@ -257,6 +257,30 @@ function delTodo(dateKey,id){
     D.todos[dateKey]=D.todos[dateKey].filter(x=>x.id!==id);
   }
   save();render(true);
+}
+
+// Goal functions
+function toggleGoal(dk,gid){
+  if(!D.goalRecords[dk])D.goalRecords[dk]={};
+  D.goalRecords[dk][gid]=!D.goalRecords[dk][gid];
+  save();render(true);
+}
+function inputGoal(dk,gid,name,target){
+  const cur=(D.goalRecords[dk]||{})[gid]||0;
+  const v=prompt(name+' (目標: '+target+')',cur);
+  if(v!==null&&!isNaN(v)){
+    if(!D.goalRecords[dk])D.goalRecords[dk]={};
+    D.goalRecords[dk][gid]=parseFloat(v);
+    save();render(true);
+  }
+}
+function addGoal(){
+  D.goals.push({id:'g'+Date.now(),name:'',icon:'📌',type:'number',target:0,unit:''});
+  save();render(true);
+}
+function updateGoal(i,field,val){
+  if(field==='target')val=parseFloat(val)||0;
+  D.goals[i][field]=val;save();render(true);
 }
 
 function genSample(){const d=new Date();for(let i=1;i<=30;i++){d.setDate(d.getDate()-1);const k=toKey(d),t=autoType(d),rt=D.types[t].routines;const n=Math.floor(Math.random()*rt.length*0.5)+Math.floor(rt.length*0.4);const sh=[...rt].sort(()=>Math.random()-0.5);D.records[k]={type:t,done:sh.slice(0,n).map(x=>x.id)}}save()}
@@ -385,6 +409,26 @@ function rToday(){
         </div>
       </div>
     </div>`;
+
+  // Goals card
+  if(D.goals.length){
+    const goalItems=D.goals.map(g=>{
+      const rec=D.goalRecords[dk]||{};
+      const val=rec[g.id];
+      if(g.type==='check'){
+        const done=!!val;
+        return`<span onclick="toggleGoal('${dk}','${g.id}')" style="cursor:pointer;white-space:nowrap">${g.icon||''} <span style="color:${done?'var(--green)':'var(--text3)'};font-weight:600">${done?'✓':'−'}</span><span style="color:var(--text2)"> ${g.name}</span></span>`;
+      } else {
+        const cur=val||0;
+        const pct=g.target?Math.min(100,Math.round(cur/g.target*100)):0;
+        const col=pct>=100?'var(--green)':pct>=50?'var(--orange)':'var(--text3)';
+        return`<span onclick="inputGoal('${dk}','${g.id}','${g.name}',${g.target||0})" style="cursor:pointer;white-space:nowrap">${g.icon||''} <span style="color:${col};font-weight:600">${cur}</span><span style="color:var(--text3)">/${g.target}${g.unit||''}</span></span>`;
+      }
+    }).join('');
+    h+=`<div style="background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:8px 12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px">${goalItems}</div>
+    </div>`;
+  }
 
   const todayW=getWeight(dk);
   const prevD=new Date(selDate);prevD.setDate(prevD.getDate()-1);const prevW=getWeight(toKey(prevD));
@@ -874,11 +918,30 @@ function rSettings(){
   const isCountdown=settingsDT==='countdown';
   const isWeight=settingsDT==='weight';
   const isTodo=settingsDT==='todo';
-  const dtBtns=Object.entries(D.types).map(([k,v])=>`<button class="dt-btn${settingsDT===k?' on':''}" onclick="settingsDT='${k}';editDT=null;render()">${v.icon} ${v.label}</button>`).join('')+`<button class="dt-btn${isCountdown?' on':''}" onclick="settingsDT='countdown';editDT=null;render()">📅 CD</button><button class="dt-btn${isTodo?' on':''}" onclick="settingsDT='todo';editDT=null;render()">✓ ToDo</button><button class="dt-btn${isWeight?' on':''}" onclick="settingsDT='weight';editDT=null;render()">⚖ 体重</button>`;
+  const isGoals=settingsDT==='goals';
+  const dtBtns=Object.entries(D.types).map(([k,v])=>`<button class="dt-btn${settingsDT===k?' on':''}" onclick="settingsDT='${k}';editDT=null;render()">${v.icon} ${v.label}</button>`).join('')+`<button class="dt-btn${isCountdown?' on':''}" onclick="settingsDT='countdown';editDT=null;render()">📅 CD</button><button class="dt-btn${isTodo?' on':''}" onclick="settingsDT='todo';editDT=null;render()">✓ ToDo</button><button class="dt-btn${isGoals?' on':''}" onclick="settingsDT='goals';editDT=null;render()">🎯 Goals</button><button class="dt-btn${isWeight?' on':''}" onclick="settingsDT='weight';editDT=null;render()">⚖ 体重</button>`;
 
   let h=`<div class="${pgCls()}"><div style="padding-top:8px"></div><div class="dt-row" style="margin-bottom:12px">${dtBtns}</div>`;
 
-  if(isWeight){
+  if(isGoals){
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">🎯 Daily Goals</div><button onclick="addGoal()" style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 8px">＋ 追加</button></div>`;
+    if(D.goals.length){
+      h+=`<div class="routine-card" style="margin-bottom:20px">${D.goals.map((g,i)=>{
+        return`<div class="routine-item" style="gap:8px">
+          <input style="width:28px;font-size:16px;text-align:center;border:none;background:transparent" value="${g.icon||''}" onblur="updateGoal(${i},'icon',this.value)" placeholder="📌"/>
+          <input style="flex:1;font-size:14px;font-weight:600;border:none;background:transparent;font-family:inherit" value="${g.name}" onblur="updateGoal(${i},'name',this.value)" placeholder="項目名"/>
+          <select onchange="updateGoal(${i},'type',this.value)" style="font-size:11px;border:none;background:var(--bg);border-radius:6px;padding:3px 4px;color:var(--text2);font-family:inherit">
+            <option value="number"${g.type==='number'?' selected':''}>数値</option>
+            <option value="check"${g.type==='check'?' selected':''}>チェック</option>
+          </select>
+          ${g.type!=='check'?`<input inputmode="numeric" style="width:40px;font-size:12px;text-align:center;border:none;background:var(--bg);border-radius:6px;padding:3px;font-family:inherit" value="${g.target||''}" onblur="updateGoal(${i},'target',this.value)" placeholder="目標"/>
+          <input style="width:24px;font-size:11px;text-align:center;border:none;background:transparent;color:var(--text3);font-family:inherit" value="${g.unit||''}" onblur="updateGoal(${i},'unit',this.value)" placeholder="単位"/>`:''}
+          <button onclick="if(confirm('「'+D.goals[${i}].name+'」を削除しますか？')){D.goals.splice(${i},1);save();render(true)}" class="del">×</button>
+        </div>`}).join('')}</div>`;
+    } else {
+      h+=`<div class="routine-card" style="margin-bottom:20px;padding:20px;text-align:center;color:var(--text3);font-size:13px">ノルマなし。「＋追加」で項目を作成。</div>`;
+    }
+  } else if(isWeight){
     const lastW=getLastWeight();
     const goalDiff=lastW?Math.round((lastW-D.goalWeight)*10)/10:null;
     h+=`<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px;padding:0 2px">⚖ 体重設定</div>`;
