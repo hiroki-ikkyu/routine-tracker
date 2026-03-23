@@ -338,10 +338,10 @@ function rToday(){
           const d=parseKey(e.date);
           const dateLabel=d.toLocaleDateString('ja-JP',{month:'short',day:'numeric'});
           const urgency=days<=7?'var(--red)':days<=30?'var(--orange)':'var(--text)';
-          return`<div class="scroll-area" style="display:flex;align-items:center;gap:4px;padding:2px 0;overflow-x:auto;overflow-y:hidden">
-            <div style="font-size:14px;font-weight:700;color:${urgency};width:36px;text-align:right;flex-shrink:0">${days}</div><div style="font-size:8px;font-weight:500;color:var(--text3);width:8px;flex-shrink:0">日</div>
-            <div style="font-size:8px;color:var(--text3);width:34px;flex-shrink:0">${dateLabel}</div>
-            <div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap">${e.label}</div>
+          return`<div class="scroll-area" style="display:flex;align-items:center;gap:2px;padding:2px 0;overflow-x:auto;overflow-y:hidden">
+            <div style="font-size:14px;font-weight:700;color:${urgency};min-width:18px;text-align:right;flex-shrink:0">${days}</div><div style="font-size:8px;font-weight:500;color:var(--text3);flex-shrink:0">日</div>
+            <div style="font-size:8px;color:var(--text3);width:32px;flex-shrink:0;text-align:right">${dateLabel}</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;margin-left:2px">${e.label}</div>
           </div>`}).join(''):'<div style="font-size:11px;color:var(--text3);padding:4px 0">イベントなし</div>'}
         </div>
         </div>
