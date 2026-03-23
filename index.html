@@ -508,7 +508,8 @@ function rSettings(){
   if(!settingsDT)settingsDT=Object.keys(D.types)[0];
   const isCountdown=settingsDT==='countdown';
   const isWeight=settingsDT==='weight';
-  const dtBtns=Object.entries(D.types).map(([k,v])=>`<button class="dt-btn${settingsDT===k?' on':''}" onclick="settingsDT='${k}';editDT=null;render()">${v.icon} ${v.label}</button>`).join('')+`<button class="dt-btn${isCountdown?' on':''}" onclick="settingsDT='countdown';editDT=null;render()">📅 CD</button><button class="dt-btn${isWeight?' on':''}" onclick="settingsDT='weight';editDT=null;render()">⚖ 体重</button>`;
+  const isTodo=settingsDT==='todo';
+  const dtBtns=Object.entries(D.types).map(([k,v])=>`<button class="dt-btn${settingsDT===k?' on':''}" onclick="settingsDT='${k}';editDT=null;render()">${v.icon} ${v.label}</button>`).join('')+`<button class="dt-btn${isCountdown?' on':''}" onclick="settingsDT='countdown';editDT=null;render()">📅 CD</button><button class="dt-btn${isTodo?' on':''}" onclick="settingsDT='todo';editDT=null;render()">✓ ToDo</button><button class="dt-btn${isWeight?' on':''}" onclick="settingsDT='weight';editDT=null;render()">⚖ 体重</button>`;
 
   let h=`<div class="${pgCls()}"><div style="padding-top:8px"></div><div class="dt-row" style="margin-bottom:12px">${dtBtns}</div>`;
 
@@ -522,6 +523,21 @@ function rSettings(){
       if(goalDiff!==null){h+=`<div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;color:var(--text2)">目標まで</div><div style="font-size:15px;font-weight:700;color:${goalDiff<=0?'var(--green)':'var(--orange)'}">${goalDiff>0?'+':''}${goalDiff.toFixed(1)} kg</div></div>`;}
     }
     h+=`</div>`;
+  } else if(isTodo){
+    const dk=todayKey();
+    const todos=getTodos(dk);
+    const pending=todos.filter(t=>!t.done);
+    const done=todos.filter(t=>t.done);
+    const allTodos=[...pending,...done];
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">✓ To do ${allTodos.length?`<span style="font-size:12px;font-weight:400;color:var(--text3)">${allTodos.length}件</span>`:''}</div><button onclick="var v=prompt('タスクを入力');if(v&&v.trim())addTodo('${dk}',v.trim())" style="font-size:13px;font-weight:600;color:var(--blue);padding:4px 8px">＋ 追加</button></div>`;
+    h+=`<div class="routine-card" style="margin-bottom:20px">${allTodos.length?allTodos.map(t=>{
+      return`<div class="routine-item${t.done?' done':''}" style="gap:10px">
+        <button onclick="toggleTodo('${dk}','${t.id}');render(true)" style="width:22px;height:22px;border-radius:11px;border:2px solid ${t.done?'var(--green)':'var(--border)'};background:${t.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">
+          ${t.done?'<svg width="12" height="12" viewBox="0 0 14 14"><path d="M2 7L5.5 10.5L12 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
+        </button>
+        <span style="font-size:15px;flex:1;color:${t.done?'var(--text3)':'var(--text)'};${t.done?'text-decoration:line-through;':''}">${t.text}</span>
+        <button onclick="delTodo('${dk}','${t.id}')" class="del">×</button>
+      </div>`}).join(''):'<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">タスクなし</div>'}</div>`;
   } else if(isCountdown){
     const evHtml=D.events.length?D.events.sort((a,b)=>a.date.localeCompare(b.date)).map((e,i)=>{const days=daysUntil(e.date);const past=days<0;return`<div class="edit-row" style="gap:8px"><input type="date" value="${e.date}" onchange="evDate(${i},this.value)" style="border:none;background:var(--bg);border-radius:6px;padding:4px 6px;font-size:12px;font-family:inherit;color:var(--text);width:130px"/><input style="flex:1;font-size:14px" value="${e.label}" onblur="evLabel(${i},this.value)"/><span style="font-size:11px;font-weight:700;color:${past?'var(--text3)':days<=7?'var(--red)':days<=30?'var(--orange)':'var(--text)'};white-space:nowrap;min-width:32px;text-align:right">${past?'済':days+'日'}</span><button class="del" onclick="evDel(${i})">×</button></div>`}).join(''):'<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">イベントなし</div>';
     h+=`<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px;padding:0 2px">📅 カウントダウン</div><div class="routine-card" style="margin-bottom:20px">${evHtml}<button class="add-btn" onclick="evAdd()">＋ イベントを追加</button></div>`;
