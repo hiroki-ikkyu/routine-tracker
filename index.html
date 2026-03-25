@@ -195,7 +195,7 @@ const DEFAULT_TYPES={
   ]}
 };
 
-function load(){try{const r=localStorage.getItem(SK);if(r){const d=JSON.parse(r);if(!d.events)d.events=[];if(!d.todos)d.todos={};if(!d.weight)d.weight={};if(!d.goalWeight)d.goalWeight=70;if(!d.todoDismissed)d.todoDismissed={};if(!d.journal)d.journal={};if(!d.customTags)d.customTags=[];if(!d.goals)d.goals=[];if(!d.goalRecords)d.goalRecords={};return d}}catch(e){}return{types:JSON.parse(JSON.stringify(DEFAULT_TYPES)),records:{},events:[],todos:{},weight:{},goalWeight:70,todoDismissed:{},journal:{},customTags:[],goals:[],goalRecords:{}}}
+function load(){try{const r=localStorage.getItem(SK);if(r){const d=JSON.parse(r);if(!d.events)d.events=[];if(!d.todos)d.todos={};if(!d.weight)d.weight={};if(!d.goalWeight)d.goalWeight=70;if(!d.todoDismissed)d.todoDismissed={};if(!d.todoDismissedTexts)d.todoDismissedTexts=[];if(!d.journal)d.journal={};if(!d.customTags)d.customTags=[];if(!d.goals)d.goals=[];if(!d.goalRecords)d.goalRecords={};return d}}catch(e){}return{types:JSON.parse(JSON.stringify(DEFAULT_TYPES)),records:{},events:[],todos:{},weight:{},goalWeight:70,todoDismissed:{},todoDismissedTexts:[],journal:{},customTags:[],goals:[],goalRecords:{}}}
 function save(){localStorage.setItem(SK,JSON.stringify(D))}
 function autoType(date){const w=date.getDay();return(w===0||w===6)?'weekend':'office'}
 function getRec(k){return D.records[k]||{type:null,done:[]}}
@@ -212,10 +212,12 @@ function getLastWeight(){const d=new Date();for(let i=0;i<60;i++){const k=toKey(
 function getWeightHistory(days){const arr=[];const d=new Date();for(let i=days-1;i>=0;i--){const dd=new Date(d);dd.setDate(d.getDate()-i);const k=toKey(dd);if(D.weight[k])arr.push({date:dd,w:D.weight[k]});}return arr}
 
 // Todo functions - carry forward uncompleted from previous day only
+// todoDismissedTexts: global list of texts that should never be carried forward again
 function getTodos(dateKey){
   if(!D.todos[dateKey])D.todos[dateKey]=[];
+  if(!D.todoDismissedTexts)D.todoDismissedTexts=[];
   const existing=D.todos[dateKey];
-  const dismissed=(D.todoDismissed&&D.todoDismissed[dateKey])||[];
+  const dismissedTexts=new Set(D.todoDismissedTexts);
   const existingTexts=new Set(existing.map(e=>e.text));
   // Check previous day for uncompleted tasks to carry forward
   const prev=new Date(parseKey(dateKey));prev.setDate(prev.getDate()-1);
@@ -224,7 +226,7 @@ function getTodos(dateKey){
   let added=false;
   prevTodos.forEach(t=>{
     const origId=t.origId||t.id;
-    if(!t.done && !dismissed.includes(origId) && !existing.some(e=>(e.origId||e.id)===origId) && !existingTexts.has(t.text)){
+    if(!t.done && !dismissedTexts.has(t.text) && !existingTexts.has(t.text)){
       existing.push({id:'cf_'+origId+'_'+dateKey,text:t.text,done:false,fromId:t.id,origId:origId});
       existingTexts.add(t.text);
       added=true;
@@ -248,11 +250,10 @@ function toggleTodo(dateKey,id){
 function delTodo(dateKey,id){
   if(D.todos[dateKey]){
     const item=D.todos[dateKey].find(x=>x.id===id);
-    // If this was a carried-forward item, remember to not carry it again
-    if(item&&item.fromId){
-      if(!D.todoDismissed)D.todoDismissed={};
-      if(!D.todoDismissed[dateKey])D.todoDismissed[dateKey]=[];
-      if(!D.todoDismissed[dateKey].includes(item.fromId))D.todoDismissed[dateKey].push(item.fromId);
+    // Record text globally so it never gets carried forward again
+    if(item){
+      if(!D.todoDismissedTexts)D.todoDismissedTexts=[];
+      if(!D.todoDismissedTexts.includes(item.text))D.todoDismissedTexts.push(item.text);
     }
     D.todos[dateKey]=D.todos[dateKey].filter(x=>x.id!==id);
   }
@@ -1044,6 +1045,21 @@ Object.keys(D.todos).forEach(dk=>{
     seen.add(t.text);return true;
   });
 });
+// One-time cleanup: remove test todos from all dates
+if(!D._cleanedTestTodos){
+  const testTexts=new Set(['あああ','かなや','さささ','かかか','ななな','ははは']);
+  if(!D.todoDismissedTexts)D.todoDismissedTexts=[];
+  Object.keys(D.todos).forEach(dk=>{
+    D.todos[dk]=D.todos[dk].filter(t=>{
+      if(testTexts.has(t.text)){
+        if(!D.todoDismissedTexts.includes(t.text))D.todoDismissedTexts.push(t.text);
+        return false;
+      }
+      return true;
+    });
+  });
+  D._cleanedTestTodos=true;
+}
 save();
 render();
 </script>
