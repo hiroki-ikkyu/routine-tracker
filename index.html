@@ -9,6 +9,7 @@
 <title>Routine Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<script src="https://hiroki-ikkyu.github.io/ceo-portal/shared-store.js"></script>
 <style>
 :root {
   --bg:#f5f5f7;--card:#fff;--text:#1d1d1f;--text2:#6e6e73;--text3:#aeaeb2;
@@ -669,7 +670,7 @@ function pickDate(y,m,d){selDate=new Date(y,m,d);aDT=null;render()}
 
 // ④ FIX: toggle preserves scroll
 let _rScroll=0;
-function toggle(dk,dt,id){const rs=$('routineScroll');if(rs)_rScroll=rs.scrollTop;if(!D.records[dk])D.records[dk]={type:dt,done:[]};const r=D.records[dk];r.type=dt;r.done=r.done.includes(id)?r.done.filter(x=>x!==id):[...r.done,id];save();render(true)}
+function toggle(dk,dt,id){const rs=$('routineScroll');if(rs)_rScroll=rs.scrollTop;if(!D.records[dk])D.records[dk]={type:dt,done:[]};const r=D.records[dk];r.type=dt;r.done=r.done.includes(id)?r.done.filter(x=>x!==id):[...r.done,id];save();if(typeof SharedStore!=='undefined'){const todayKey=toKey(new Date());if(dk===todayKey){const t=r.type||autoType(new Date());const rt=D.types[t]?.routines||[];const all=getAllTaskIds(rt);SharedStore.routine.logDay({completed:r.done.filter(z=>all.includes(z)).length,total:all.length});}}render(true)}
 function setDT(t){aDT=t;const dk=toKey(selDate);if(!D.records[dk])D.records[dk]={type:t,done:[]};else D.records[dk].type=t;save();render(true)}
 
 // ── REVIEW ──
