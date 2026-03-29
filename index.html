@@ -1004,9 +1004,13 @@ function rSettings(){
     h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px"><div style="font-size:14px;font-weight:700;color:var(--text)">${dt.icon} ${dt.label}のルーティン</div><div style="display:flex;align-items:center;gap:8px">${isEditing?`<button onclick="addR('${settingsDT}')" style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 0">＋ 追加</button>`:''}<button style="font-size:13px;font-weight:600;color:var(--text3);padding:4px 8px" onclick="editDT=${isEditing?'null':`'${settingsDT}'`};render(true)">${isEditing?'完了':'編集'}</button></div></div><div class="routine-card" style="margin-bottom:20px">${isEditing?editHtml:viewHtml}</div>`;
   }
 
-  
+
+  h+=`<div class="routine-card" style="margin-top:8px;padding:16px 20px"><div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">データ管理</div><div style="display:flex;gap:8px"><button onclick="backupData()" style="flex:1;padding:12px;border-radius:10px;background:var(--bg);border:none;font-size:13px;font-weight:600;font-family:inherit;color:var(--text2);cursor:pointer">データをバックアップ</button><button onclick="restoreData()" style="flex:1;padding:12px;border-radius:10px;background:var(--bg);border:none;font-size:13px;font-weight:600;font-family:inherit;color:var(--text2);cursor:pointer">データを復元</button></div></div>`;
   h+=`</div>`;$('app').innerHTML=h;
 }
+
+function backupData(){const d=localStorage.getItem(SK);const b=new Blob([d||'{}'],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`routine-tracker_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);}
+function restoreData(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{if(!confirm('現在のデータを上書きしますか？'))return;try{JSON.parse(ev.target.result);localStorage.setItem(SK,ev.target.result);location.reload();}catch{alert('ファイルが無効です。');}};r.readAsText(f);};i.click();}
 
 function eTime(k,i,v){if(v.match(/^\d{1,2}:\d{2}$/)){D.types[k].routines[i].time=v;sortR(k);save();render(true)}}
 function eTimeSel(k,i,h,m){D.types[k].routines[i].time=parseInt(h)+':'+m;sortR(k);save();render(true)}
